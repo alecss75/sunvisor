@@ -8,7 +8,7 @@ module sun.visor {
     requires java.desktop; 
     requires java.net.http;
     requires com.google.gson;
-    requires com.github.kwhat.jnativehook;
+    requires transitive com.github.kwhat.jnativehook;
 
     
     // --- Módulos que ABRIMOS  ---
