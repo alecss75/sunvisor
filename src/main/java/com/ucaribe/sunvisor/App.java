@@ -23,194 +23,334 @@ import java.util.logging.Level;
 import net.sourceforge.tess4j.ITesseract;
 import net.sourceforge.tess4j.Tesseract;
 
+/**
+ * SunVisor OCR - Manga Edition
+ * Aplicación para OCR de manga japonés con soporte para Manga OCR y Tesseract
+ */
 public class App extends Application {
-
+    
     // ==================== CONSTANTES ====================
     private static final Logger LOGGER = Logger.getLogger(App.class.getName());
-    private static final double WINDOW_WIDTH = 350;
-    private static final double WINDOW_HEIGHT = 180;
+    private static final double WINDOW_WIDTH = 380;
+    private static final double WINDOW_HEIGHT = 240;
     private static final String TESSDATA_DIR = "tessdata";
-    private static final String[] LANGUAGES = { "eng", "spa", "jpn", "jpn_vert" };
-    private static final String APP_TITLE = "SunVisor OCR";
-
-    // Usar siempre todos los idiomas
-    private static final String OCR_LANGUAGES = "spa+eng+jpn";
-
+    private static final String[] LANGUAGES = {"eng", "spa", "jpn", "jpn_vert"};
+    private static final String APP_TITLE = "SunVisor OCR - Manga Edition";
+    
     // ==================== VARIABLES DE INSTANCIA ====================
     private final ITesseract tesseract = new Tesseract();
     private SelectionScreen currentScreen = null;
     private Stage primaryStage;
     private boolean isProcessing = false;
+    
+    // UI Components
     private Button startButton;
+    private Label statusLabel;
+    private ProgressIndicator loadingIndicator;
+    
+    // OCR Components
     private GlobalKeyboardListener globalKeyListener;
+    private MangaOCRServerManager serverManager;
+    private MangaOCRClient mangaOCR;
+    private boolean useMangaOCR = false;
 
+    // ==================== INICIO DE APLICACIÓN ====================
+    
     @Override
     public void start(Stage stage) {
         this.primaryStage = stage;
         stage.setTitle(APP_TITLE);
 
-        if (!inicializarTesseract()) {
-            mostrarError("Error Fatal",
-                    "No se pudo inicializar Tesseract OCR.\n" +
-                            "Verifica que los archivos de idioma estén disponibles.");
-            Platform.exit();
-            return;
-        }
+        // Mostrar splash screen mientras carga
+        mostrarSplashScreen();
 
-        configurarAtajosGlobales();
-        configurarInterfaz(stage);
-
-        LOGGER.info("Aplicación lista - Idiomas: " + OCR_LANGUAGES);
-        LOGGER.info("Atajo global: Ctrl+Shift+T");
+        // Inicializar en background thread
+        new Thread(() -> {
+            try {
+                inicializarAplicacion();
+            } catch (Exception e) {
+                LOGGER.log(Level.SEVERE, "Error durante inicialización", e);
+                Platform.runLater(() -> {
+                    mostrarError("Error Fatal", 
+                        "No se pudo inicializar la aplicación.\n" +
+                        "Error: " + e.getMessage());
+                    Platform.exit();
+                });
+            }
+        }).start();
     }
 
+    /**
+     * Inicializa todos los componentes de la aplicación
+     */
+    private void inicializarAplicacion() throws Exception {
+        LOGGER.info("=".repeat(60));
+        LOGGER.info("Iniciando SunVisor OCR - Manga Edition");
+        LOGGER.info("=".repeat(60));
+        
+        // 1. Inicializar Tesseract (fallback)
+        actualizarEstado("Inicializando Tesseract...");
+        if (!inicializarTesseract()) {
+            throw new Exception("No se pudo inicializar Tesseract OCR");
+        }
+        LOGGER.info("✅ Tesseract inicializado");
+
+        // 2. Intentar iniciar servidor Manga OCR
+        actualizarEstado("Iniciando Manga OCR Server...");
+        boolean serverIniciado = iniciarMangaOCRServer();
+
+        // 3. Configurar atajos globales
+        actualizarEstado("Configurando atajos de teclado...");
+        configurarAtajosGlobales();
+        LOGGER.info("✅ Atajos configurados (Ctrl+Shift+S)");
+
+        // 4. Mostrar interfaz principal
+        Platform.runLater(() -> {
+            configurarInterfaz(primaryStage);
+            LOGGER.info("✅ Aplicación lista");
+            LOGGER.info("=".repeat(60));
+        });
+    }
+
+    /**
+     * Intenta iniciar el servidor Manga OCR
+     * @return true si se inició correctamente
+     */
+    private boolean iniciarMangaOCRServer() {
+        try {
+            serverManager = new MangaOCRServerManager();
+            
+            LOGGER.info("Intentando iniciar servidor FastAPI...");
+            boolean servidorIniciado = serverManager.iniciarServidor();
+
+            if (!servidorIniciado) {
+                LOGGER.warning("⚠️ No se pudo iniciar servidor Manga OCR");
+                return false;
+            }
+
+            // Crear cliente
+            mangaOCR = new MangaOCRClient();
+            
+            // Esperar a que el servidor esté listo (máximo 30 segundos)
+            LOGGER.info("Esperando a que el servidor esté listo...");
+            int intentos = 0;
+            int maxIntentos = 30;
+            
+            while (intentos < maxIntentos) {
+                if (mangaOCR.isServerAvailable()) {
+                    LOGGER.info("✅ Manga OCR Server listo");
+                    useMangaOCR = true;
+                    return true;
+                }
+                
+                Thread.sleep(1000);
+                intentos++;
+                
+                if (intentos % 5 == 0) {
+                    LOGGER.info("Esperando servidor... " + intentos + "/" + maxIntentos);
+                }
+            }
+            
+            LOGGER.warning("⚠️ Timeout esperando servidor (30s)");
+            return false;
+            
+        } catch (Exception e) {
+            LOGGER.log(Level.WARNING, "Error al iniciar Manga OCR Server", e);
+            return false;
+        }
+    }
+
+    /**
+     * Actualiza el mensaje de estado en el splash screen
+     */
+    private void actualizarEstado(String mensaje) {
+        Platform.runLater(() -> {
+            if (statusLabel != null) {
+                statusLabel.setText(mensaje);
+            }
+        });
+    }
+
+    // ==================== INTERFAZ DE USUARIO ====================
+    
+    /**
+     * Muestra pantalla de carga inicial
+     */
+    private void mostrarSplashScreen() {
+        Label titleLabel = new Label("🎌 SunVisor OCR");
+        titleLabel.setStyle("-fx-font-size: 20px; -fx-font-weight: bold;");
+        
+        statusLabel = new Label("Inicializando...");
+        statusLabel.setStyle("-fx-font-size: 12px; -fx-text-fill: #666;");
+        
+        loadingIndicator = new ProgressIndicator();
+        loadingIndicator.setPrefSize(50, 50);
+        
+        VBox splashLayout = new VBox(20);
+        splashLayout.setAlignment(Pos.CENTER);
+        splashLayout.setPadding(new Insets(40));
+        splashLayout.getChildren().addAll(titleLabel, loadingIndicator, statusLabel);
+        
+        Scene splashScene = new Scene(splashLayout, WINDOW_WIDTH, WINDOW_HEIGHT);
+        primaryStage.setScene(splashScene);
+        primaryStage.show();
+    }
+
+    /**
+     * Configura la interfaz principal de la aplicación
+     */
+    private void configurarInterfaz(Stage stage) {
+        // Título
+        Label titleLabel = new Label("🎌 Manga OCR");
+        titleLabel.setStyle("-fx-font-size: 20px; -fx-font-weight: bold;");
+
+        // Estado del motor OCR
+        Label engineStatusLabel = new Label();
+        if (useMangaOCR) {
+            engineStatusLabel.setText("✅ Manga OCR Activo (Alta Precisión)");
+            engineStatusLabel.setStyle("-fx-text-fill: #4CAF50; -fx-font-size: 11px; -fx-font-weight: bold;");
+        } else {
+            engineStatusLabel.setText("⚠️ Modo Tesseract (Precisión Reducida)");
+            engineStatusLabel.setStyle("-fx-text-fill: #FF9800; -fx-font-size: 11px; -fx-font-weight: bold;");
+        }
+
+        // Tooltip informativo
+        Tooltip engineTooltip = new Tooltip();
+        if (useMangaOCR) {
+            engineTooltip.setText(
+                "Manga OCR está activo.\n" +
+                "Optimizado para manga japonés con 90%+ de precisión.\n" +
+                "Funciona con hiragana, katakana y kanji."
+            );
+        } else {
+            engineTooltip.setText(
+                "Manga OCR no está disponible.\n" +
+                "Usando Tesseract como alternativa.\n" +
+                "Precisión reducida para manga (60-70%).\n\n" +
+                "Para activar Manga OCR:\n" +
+                "1. Instala Python\n" +
+                "2. Ejecuta: pip install -r requirements.txt\n" +
+                "3. Reinicia la aplicación"
+            );
+        }
+        engineStatusLabel.setTooltip(engineTooltip);
+
+        // Botón principal
+        startButton = new Button("🔍 Capturar Bocadillo");
+        startButton.setOnAction(e -> iniciarSeleccionSecuencial());
+        startButton.setPrefWidth(300);
+        startButton.setPrefHeight(55);
+        startButton.setStyle(
+            "-fx-font-size: 15px; " +
+            "-fx-font-weight: bold; " +
+            "-fx-background-color: #4CAF50; " +
+            "-fx-text-fill: white; " +
+            "-fx-background-radius: 8px; " +
+            "-fx-cursor: hand;"
+        );
+
+        // Efectos hover
+        startButton.setOnMouseEntered(e -> 
+            startButton.setStyle(
+                "-fx-font-size: 15px; " +
+                "-fx-font-weight: bold; " +
+                "-fx-background-color: #45a049; " +
+                "-fx-text-fill: white; " +
+                "-fx-background-radius: 8px; " +
+                "-fx-cursor: hand;"
+            )
+        );
+        startButton.setOnMouseExited(e -> 
+            startButton.setStyle(
+                "-fx-font-size: 15px; " +
+                "-fx-font-weight: bold; " +
+                "-fx-background-color: #4CAF50; " +
+                "-fx-text-fill: white; " +
+                "-fx-background-radius: 8px; " +
+                "-fx-cursor: hand;"
+            )
+        );
+
+        // Información de atajo
+        Text shortcutInfo = new Text("⌨️ Atajo de teclado: Ctrl+Shift+S");
+        shortcutInfo.setStyle("-fx-font-size: 11px; -fx-fill: #999;");
+
+        // Separador
+        Separator separator = new Separator();
+
+        // Layout principal
+        VBox root = new VBox(12);
+        root.setAlignment(Pos.CENTER);
+        root.setPadding(new Insets(25));
+        root.getChildren().addAll(
+            titleLabel,
+            engineStatusLabel,
+            separator,
+            startButton,
+            shortcutInfo
+        );
+
+        Scene scene = new Scene(root, WINDOW_WIDTH, WINDOW_HEIGHT);
+        
+        stage.setScene(scene);
+        stage.setOnCloseRequest(e -> {
+            e.consume(); // Prevenir cierre directo
+            cerrarAplicacion();
+        });
+        stage.show();
+    }
+
+    // ==================== ATAJOS GLOBALES ====================
+    
     private void configurarAtajosGlobales() {
         globalKeyListener = new GlobalKeyboardListener(() -> {
             Platform.runLater(() -> {
                 iniciarSeleccionSecuencial();
             });
         });
-
+        
         globalKeyListener.register();
     }
 
-    /**
-     * INTERFAZ
-     */
-    private void configurarInterfaz(Stage stage) {
-        // Título
-        Label titleLabel = new Label("📸 SunVisor OCR");
-        titleLabel.setStyle("-fx-font-size: 20px; -fx-font-weight: bold;");
-
-        // Botón principal (más grande y centrado)
-        startButton = new Button("🔍 Iniciar Captura");
-        startButton.setOnAction(e -> iniciarSeleccionSecuencial());
-        startButton.setPrefWidth(280);
-        startButton.setPrefHeight(60);
-        startButton.setStyle(
-                "-fx-font-size: 16px; " +
-                        "-fx-font-weight: bold; " +
-                        "-fx-background-color: #4CAF50; " +
-                        "-fx-text-fill: white; " +
-                        "-fx-background-radius: 8px;");
-
-        // Efecto hover
-        startButton.setOnMouseEntered(e -> startButton.setStyle(
-                "-fx-font-size: 16px; " +
-                        "-fx-font-weight: bold; " +
-                        "-fx-background-color: #45a049; " +
-                        "-fx-text-fill: white; " +
-                        "-fx-background-radius: 8px;"));
-        startButton.setOnMouseExited(e -> startButton.setStyle(
-                "-fx-font-size: 16px; " +
-                        "-fx-font-weight: bold; " +
-                        "-fx-background-color: #4CAF50; " +
-                        "-fx-text-fill: white; " +
-                        "-fx-background-radius: 8px;"));
-
-        // Info de idiomas
-        Text languageInfo = new Text("🌐 Detecta: Español, English, 日本語");
-        languageInfo.setStyle("-fx-font-size: 11px; -fx-fill: #666;");
-
-        // Info de atajo
-        Text shortcutInfo = new Text("⌨Atajo: Ctrl+Shift+T");
-        shortcutInfo.setStyle("-fx-font-size: 11px; -fx-fill: #999;");
-
-        // Layout
-        VBox root = new VBox(15);
-        root.setAlignment(Pos.CENTER);
-        root.setPadding(new Insets(25));
-        root.getChildren().addAll(
-                titleLabel,
-                startButton,
-                languageInfo,
-                shortcutInfo);
-
-        Scene scene = new Scene(root, WINDOW_WIDTH, WINDOW_HEIGHT);
-
-        stage.setScene(scene);
-        stage.setOnCloseRequest(e -> cerrarAplicacion());
-        stage.show();
-    }
-
-    @Override
-    public void stop() throws Exception {
-        cerrarAplicacion();
-        super.stop();
-    }
-
-    private void cerrarAplicacion() {
-        if (globalKeyListener != null) {
-            globalKeyListener.unregister();
-        }
-
-        if (currentScreen != null) {
-            try {
-                currentScreen.forceClose();
-            } catch (Exception e) {
-                LOGGER.log(Level.WARNING, "Error al cerrar SelectionScreen", e);
-            }
-        }
-        LOGGER.info("Aplicación cerrada");
-    }
-
     // ==================== INICIALIZACIÓN DE TESSERACT ====================
-
+    
     private boolean inicializarTesseract() {
         try {
             String tessdataPath = prepararTessdata();
             if (tessdataPath == null) {
-                LOGGER.severe("No se pudo preparar el directorio tessdata");
+                LOGGER.severe("No se pudo preparar tessdata");
                 return false;
             }
-
+            
             configurarTesseract(tessdataPath);
-
-            LOGGER.info("Tesseract inicializado correctamente");
             return true;
-
+            
         } catch (Exception e) {
             LOGGER.log(Level.SEVERE, "Error al inicializar Tesseract", e);
             return false;
         }
     }
 
-    /**
-     * ✅ SIMPLIFICADO: Configuración fija con todos los idiomas
-     */
     private void configurarTesseract(String tessdataPath) {
         tesseract.setDatapath(tessdataPath);
-        tesseract.setLanguage(OCR_LANGUAGES); // Siempre todos los idiomas
-        tesseract.setPageSegMode(3); // Automatic page segmentation
-        tesseract.setOcrEngineMode(1); // LSTM only
-
-        LOGGER.info("Tesseract configurado con: " + OCR_LANGUAGES);
+        tesseract.setLanguage("jpn+eng+spa");
+        tesseract.setPageSegMode(3);
+        tesseract.setOcrEngineMode(1);
     }
 
     private String prepararTessdata() {
         try {
             File tessDir = new File(TESSDATA_DIR);
-            if (!tessDir.exists()) {
-                if (!tessDir.mkdirs()) {
-                    LOGGER.severe("No se pudo crear el directorio: " + TESSDATA_DIR);
-                    return null;
-                }
-                LOGGER.info("Directorio tessdata creado: " + tessDir.getAbsolutePath());
+            if (!tessDir.exists() && !tessDir.mkdirs()) {
+                return null;
             }
 
-            boolean todosCopiados = true;
             for (String lang : LANGUAGES) {
-                if (!copiarArchivoIdioma(tessDir, lang)) {
-                    todosCopiados = false;
-                }
-            }
-
-            if (!todosCopiados) {
-                LOGGER.warning("Algunos archivos de idioma no se pudieron copiar");
+                copiarArchivoIdioma(tessDir, lang);
             }
 
             return tessDir.getAbsolutePath();
-
+            
         } catch (Exception e) {
             LOGGER.log(Level.SEVERE, "Error al preparar tessdata", e);
             return null;
@@ -221,35 +361,35 @@ public class App extends Application {
         try {
             String fileName = lang + ".traineddata";
             File targetFile = new File(tessDir, fileName);
-
+            
             if (targetFile.exists()) {
-                LOGGER.fine("Archivo ya existe: " + fileName);
                 return true;
             }
 
             String resourcePath = "/tessdata/" + fileName;
             try (InputStream in = getClass().getResourceAsStream(resourcePath)) {
                 if (in == null) {
-                    LOGGER.warning("No se encontró el recurso: " + resourcePath);
+                    LOGGER.warning("No se encontró: " + resourcePath);
                     return false;
                 }
-
+                
                 Files.copy(in, targetFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
-                LOGGER.info("Archivo copiado: " + targetFile.getAbsolutePath());
                 return true;
             }
-
+            
         } catch (Exception e) {
-            LOGGER.log(Level.WARNING, "Error al copiar archivo de idioma: " + lang, e);
+            LOGGER.log(Level.WARNING, "Error copiando: " + lang, e);
             return false;
         }
     }
 
     // ==================== LÓGICA DE SELECCIÓN ====================
-
+    
     private void iniciarSeleccionSecuencial() {
         if (isProcessing) {
-            LOGGER.warning("Proceso ya activo, ignorando llamada");
+            LOGGER.warning("Proceso ya activo");
+            mostrarAdvertencia("Proceso Activo", 
+                "Ya hay una captura en progreso.\nEspera a que finalice.");
             return;
         }
 
@@ -262,7 +402,7 @@ public class App extends Application {
 
         primaryStage.hide();
 
-        LOGGER.info("Iniciando selección de área");
+        LOGGER.info("Iniciando captura de bocadillo...");
 
         currentScreen = new SelectionScreen(area -> {
             Platform.runLater(() -> {
@@ -277,12 +417,11 @@ public class App extends Application {
         currentScreen = null;
 
         if (area != null && area.width > 0 && area.height > 0) {
-            LOGGER.info("Área seleccionada: " +
-                    String.format("x=%d, y=%d, w=%d, h=%d",
-                            area.x, area.y, area.width, area.height));
+            LOGGER.info(String.format("Área seleccionada: x=%d, y=%d, w=%d, h=%d", 
+                area.x, area.y, area.width, area.height));
             hacerOCR(area);
         } else {
-            LOGGER.info("Selección cancelada o área inválida");
+            LOGGER.info("Selección cancelada");
         }
 
         primaryStage.show();
@@ -291,65 +430,150 @@ public class App extends Application {
     }
 
     // ==================== PROCESAMIENTO OCR ====================
-
-    /**
-     * OCR con preprocesamiento inteligente
-     */
+    
     private void hacerOCR(Rectangle area) {
-        try {
-            LOGGER.info("Capturando área de pantalla...");
+        // Mostrar indicador de progreso
+        Platform.runLater(() -> {
+            startButton.setText("⏳ Procesando...");
+        });
 
-            Robot robot = new Robot();
-            BufferedImage img = robot.createScreenCapture(area);
+        // Ejecutar OCR en thread separado
+        new Thread(() -> {
+            try {
+                LOGGER.info("Capturando imagen del bocadillo...");
+                
+                Robot robot = new Robot();
+                BufferedImage img = robot.createScreenCapture(area);
+                
+                String texto = null;
+                String motorUsado = "";
+                
+                // Intentar con Manga OCR primero
+                if (useMangaOCR && mangaOCR != null && mangaOCR.isServerAvailable()) {
+                    try {
+                        LOGGER.info("Procesando con Manga OCR...");
+                        texto = mangaOCR.processImage(img);
+                        motorUsado = "Manga OCR";
+                        LOGGER.info("✅ Manga OCR exitoso");
+                        
+                    } catch (Exception e) {
+                        LOGGER.warning("Manga OCR falló, intentando con Tesseract...");
+                        LOGGER.log(Level.FINE, "Error de Manga OCR", e);
+                        texto = null;
+                    }
+                }
+                
+                // Fallback a Tesseract si Manga OCR no funcionó
+                if (texto == null) {
+                    LOGGER.info("Procesando con Tesseract...");
+                    
+                    // Preprocesar imagen para mejorar precisión
+                    img = ImagePreprocessor.preprocess(img, true);
+                    
+                    texto = tesseract.doOCR(img);
+                    motorUsado = "Tesseract";
+                    LOGGER.info("✅ Tesseract completado");
+                }
 
-            // Siempre aplicar preprocesamiento ligero
-            img = ImagePreprocessor.preprocess(img, true);
+                // Validar resultado
+                if (texto == null || texto.trim().isEmpty()) {
+                    LOGGER.info("No se detectó texto");
+                    
+                    final String motorFinal = motorUsado;
+                    Platform.runLater(() -> {
+                        startButton.setText("🔍 Capturar Bocadillo");
+                        mostrarInfo("Sin Resultados", 
+                            "No se detectó texto en el área seleccionada.\n" +
+                            "Motor usado: " + motorFinal + "\n\n" +
+                            "Sugerencias:\n" +
+                            "• Selecciona solo el área del bocadillo\n" +
+                            "• Asegúrate de que el texto sea claro\n" +
+                            "• Aumenta el tamaño del área seleccionada");
+                    });
+                    return;
+                }
 
-            LOGGER.info("Ejecutando OCR multi-idioma...");
+                // Mostrar resultado
+                final String textoFinal = texto.trim();
+                final String motorFinal = motorUsado;
+                int caracteres = textoFinal.length();
+                
+                LOGGER.info("✅ Texto detectado: " + caracteres + " caracteres");
+                LOGGER.info("Texto: " + textoFinal.substring(0, Math.min(50, textoFinal.length())) + "...");
+                
+                Platform.runLater(() -> {
+                    startButton.setText("🔍 Capturar Bocadillo");
+                    ResultWindow win = new ResultWindow(textoFinal, motorFinal);
+                    win.show();
+                });
 
-            String texto = tesseract.doOCR(img);
-
-            if (texto == null || texto.trim().isEmpty()) {
-                LOGGER.info("No se detectó texto");
-                mostrarInfo("Sin Resultados",
-                        "No se detectó texto en el área seleccionada.\n\n" +
-                                "Sugerencias:\n" +
-                                "• Aumenta el tamaño del área seleccionada\n" +
-                                "• Asegúrate de que haya buen contraste\n" +
-                                "• El texto debe ser claro y legible");
-                return;
+            } catch (java.awt.AWTException e) {
+                LOGGER.log(Level.SEVERE, "Error al capturar pantalla", e);
+                Platform.runLater(() -> {
+                    startButton.setText("🔍 Capturar Bocadillo");
+                    mostrarError("Error de Captura", 
+                        "No se pudo capturar la pantalla.\n" +
+                        "Error: " + e.getMessage());
+                });
+                
+            } catch (Exception e) {
+                LOGGER.log(Level.SEVERE, "Error durante OCR", e);
+                Platform.runLater(() -> {
+                    startButton.setText("🔍 Capturar Bocadillo");
+                    mostrarError("Error OCR", 
+                        "Error al procesar el texto.\n" +
+                        "Error: " + e.getMessage());
+                });
             }
-
-            int caracteres = texto.trim().length();
-            LOGGER.info("✅ Texto detectado: " + caracteres + " caracteres");
-
-            Platform.runLater(() -> {
-                ResultWindow win = new ResultWindow(texto.trim());
-                win.show();
-            });
-
-        } catch (java.awt.AWTException e) {
-            LOGGER.log(Level.SEVERE, "Error al capturar pantalla", e);
-            mostrarError("Error de Captura",
-                    "No se pudo capturar la pantalla.\n" +
-                            "Error: " + e.getMessage());
-
-        } catch (Exception e) {
-            LOGGER.log(Level.SEVERE, "Error durante OCR", e);
-            mostrarError("Error OCR",
-                    "No se pudo procesar el texto.\n" +
-                            "Error: " + e.getMessage());
-        }
+        }).start();
     }
 
-    // ==================== MÉTODOS DE DIÁLOGO ====================
+    // ==================== CIERRE DE APLICACIÓN ====================
+    
+    @Override
+    public void stop() throws Exception {
+        cerrarAplicacion();
+        super.stop();
+    }
 
+    private void cerrarAplicacion() {
+        LOGGER.info("Cerrando aplicación...");
+        
+        // Desregistrar atajos globales
+        if (globalKeyListener != null) {
+            globalKeyListener.unregister();
+        }
+        
+        // Cerrar pantalla de selección si está abierta
+        if (currentScreen != null) {
+            try {
+                currentScreen.forceClose();
+            } catch (Exception e) {
+                LOGGER.log(Level.WARNING, "Error al cerrar SelectionScreen", e);
+            }
+        }
+        
+        // Detener servidor Manga OCR
+        if (serverManager != null) {
+            serverManager.detenerServidor();
+        }
+        
+        LOGGER.info("✅ Aplicación cerrada correctamente");
+        Platform.exit();
+    }
+
+    // ==================== DIÁLOGOS ====================
+    
     private void mostrarError(String titulo, String mensaje) {
         mostrarAlerta(Alert.AlertType.ERROR, titulo, mensaje);
     }
 
     private void mostrarInfo(String titulo, String mensaje) {
         mostrarAlerta(Alert.AlertType.INFORMATION, titulo, mensaje);
+    }
+
+    private void mostrarAdvertencia(String titulo, String mensaje) {
+        mostrarAlerta(Alert.AlertType.WARNING, titulo, mensaje);
     }
 
     private void mostrarAlerta(Alert.AlertType tipo, String titulo, String mensaje) {
@@ -366,6 +590,8 @@ public class App extends Application {
         });
     }
 
+    // ==================== PUNTO DE ENTRADA ====================
+    
     public static void main(String[] args) {
         launch(args);
     }

@@ -119,7 +119,7 @@ async def startup_event():
     """Evento al iniciar el servidor"""
     logger.info("=" * 60)
     logger.info("🎌 Manga OCR API Server")
-    logger.info("Puerto: 8000")
+    logger.info("Puerto: 8080")
     logger.info("Endpoints disponibles:")
     logger.info("  - GET  /         (Información)")
     logger.info("  - GET  /health   (Estado)")
@@ -138,7 +138,7 @@ if __name__ == "__main__":
     uvicorn.run(
         app,
         host="127.0.0.1",
-        port=8000,
+        port=8080,
         log_level="info",
         access_log=False  # Desactivar logs de acceso para menos ruido
     )

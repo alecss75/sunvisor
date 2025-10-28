@@ -2,98 +2,90 @@ package com.ucaribe.sunvisor;
 
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
+import javafx.scene.control.Label;
 import javafx.scene.control.TextArea;
-import javafx.scene.input.Clipboard;
-import javafx.scene.input.ClipboardContent;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
+import javafx.scene.input.Clipboard;
+import javafx.scene.input.ClipboardContent;
 
+/**
+ * Ventana para mostrar los resultados del OCR
+ */
 public class ResultWindow {
-
-    private final String ocrText;
-    private Stage stage; // Guardar referencia al stage
-
-    public ResultWindow(String text) {
-        this.ocrText = text;
+    
+    private Stage stage;
+    private String texto;
+    private String motorOCR;
+    
+    public ResultWindow(String texto) {
+        this(texto, "OCR");
     }
-
+    
+    public ResultWindow(String texto, String motorOCR) {
+        this.texto = texto;
+        this.motorOCR = motorOCR;
+    }
+    
     public void show() {
         stage = new Stage();
-        stage.setTitle("Texto Extraído (Sun Visor)");
-
-        TextArea textArea = new TextArea(ocrText);
-        textArea.setWrapText(true);
-        textArea.setEditable(false);
-
-        Button copyButton = new Button("Copiar Todo");
-        copyButton.setOnAction(e -> {
-            try {
-                // Intentar copiar al portapapeles
-                ClipboardContent content = new ClipboardContent();
-                content.putString(ocrText);
-                Clipboard.getSystemClipboard().setContent(content);
-
-                copyButton.setText("Copiado!");
-
-                Thread resetThread = new Thread(() -> {
-                    try {
-                        Thread.sleep(2000);
-
-                        javafx.application.Platform.runLater(() -> {
-                            if (stage.isShowing()) {
-                                copyButton.setText("Copiar Todo");
-                            }
-                        });
-
-                    } catch (InterruptedException ex) {
-                        Thread.currentThread().interrupt();
-                        System.out.println("Thread de reset interrumpido");
-                    }
-                });
-
-                resetThread.setDaemon(true);
-                resetThread.setName("ResetButtonThread");
-                resetThread.start();
-
-            } catch (Exception ex) {
-                // Manejar error de clipboard
-                System.err.println("Error al copiar al portapapeles: " + ex.getMessage());
-                ex.printStackTrace();
-
-                copyButton.setText("Error");
-
-                // Restaurar después de 2 segundos
-                Thread errorResetThread = new Thread(() -> {
-                    try {
-                        Thread.sleep(2000);
-                        javafx.application.Platform.runLater(() -> {
-                            if (stage.isShowing()) {
-                                copyButton.setText("Copiar Todo");
-                            }
-                        });
-                    } catch (InterruptedException iex) {
-                        Thread.currentThread().interrupt();
-                    }
-                });
-
-                errorResetThread.setDaemon(true);
-                errorResetThread.start();
-            }
-        });
-        Button closeButton = new Button("Cerrar");
-        closeButton.setOnAction(e -> stage.close());
-
-        HBox buttonBox = new HBox(10, copyButton, closeButton);
-        buttonBox.setStyle("-fx-padding: 10;");
-
+        stage.setTitle("Resultado OCR");
+        
         BorderPane root = new BorderPane();
-        root.setCenter(textArea);
+        
+        // Header con información
+        Label infoLabel = new Label("Motor: " + motorOCR + " | Caracteres: " + texto.length());
+        infoLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: #666;");
+        infoLabel.setPadding(new Insets(5, 10, 5, 10));
+        
+        // Área de texto
+        TextArea textArea = new TextArea(texto);
+        textArea.setEditable(true);
+        textArea.setWrapText(true);
+        textArea.setPrefRowCount(15);
+        textArea.setStyle("-fx-font-size: 14px;");
+        
+        // Botones
+        Button copiarBtn = new Button("📋 Copiar");
+        copiarBtn.setOnAction(e -> {
+            copiarAlPortapapeles();
+            copiarBtn.setText("✅ Copiado");
+            new Thread(() -> {
+                try {
+                    Thread.sleep(2000);
+                    javafx.application.Platform.runLater(() -> copiarBtn.setText("📋 Copiar"));
+                } catch (InterruptedException ex) {}
+            }).start();
+        });
+        
+        Button cerrarBtn = new Button("Cerrar");
+        cerrarBtn.setOnAction(e -> stage.close());
+        
+        HBox buttonBox = new HBox(10, copiarBtn, cerrarBtn);
+        buttonBox.setAlignment(Pos.CENTER);
+        buttonBox.setPadding(new Insets(10));
+        
+        // Layout
+        VBox centerBox = new VBox(5, infoLabel, textArea);
+        
+        root.setCenter(centerBox);
         root.setBottom(buttonBox);
-
-        Scene scene = new Scene(root, 500, 300);
+        
+        Scene scene = new Scene(root, 600, 400);
         stage.setScene(scene);
-        stage.setAlwaysOnTop(true);
         stage.show();
+    }
+    
+    private void copiarAlPortapapeles() {
+        Clipboard clipboard = Clipboard.getSystemClipboard();
+        ClipboardContent content = new ClipboardContent();
+        content.putString(texto);
+        clipboard.setContent(content);
+        
+        System.out.println("✅ Texto copiado al portapapeles");
     }
 }

@@ -17,7 +17,7 @@ public class MangaOCRServerManager {
     
     private static final Logger LOGGER = Logger.getLogger(MangaOCRServerManager.class.getName());
     private static final String PYTHON_SCRIPT = "servicio_ocr.py";
-    private static final int SERVER_PORT = 8000;
+    private static final int SERVER_PORT = 8080;
     
     private Process serverProcess;
     private Thread logReaderThread;
