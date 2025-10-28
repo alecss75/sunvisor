@@ -10,10 +10,13 @@ Aplicación de escritorio para realizar OCR (Reconocimiento Óptico de Caractere
 ## ✨ Características
 
 - 🖱️ **Selección interactiva**: Selecciona cualquier área de tu pantalla
-- 🔍 **OCR Multi-idioma**: Soporte para Español, Inglés y Japonés
+- �️ **Soporte multi-monitor**: Funciona en configuraciones con múltiples pantallas
+- �🔤 **Selector de alfabeto**: Elige entre dos tipos de texto:
+  - **Alfabeto Latino**: Español e Inglés (procesamiento rápido con Tesseract)
+  - **Alfabeto Japonés**: Usa Manga OCR (alta precisión) con fallback a Tesseract
 - 📋 **Copiar al portapapeles**: Resultados listos para usar
 - ⚡ **Interfaz intuitiva**: Similar a la herramienta de recortes de Windows
-- 🎯 **Precisión**: Utiliza Tesseract OCR Engine
+- 🎯 **Precisión adaptativa**: Preprocesamiento optimizado según el tipo de alfabeto
 - ⚡ **Alto rendimiento**: Optimizado con procesamiento de imágenes acelerado y gestión eficiente de hilos
 
 ## 🚀 Optimizaciones de Rendimiento

@@ -31,10 +31,31 @@ public class App extends Application {
     // ==================== CONSTANTES ====================
     private static final Logger LOGGER = Logger.getLogger(App.class.getName());
     private static final double WINDOW_WIDTH = 380;
-    private static final double WINDOW_HEIGHT = 240;
+    private static final double WINDOW_HEIGHT = 280;
     private static final String TESSDATA_DIR = "tessdata";
     private static final String[] LANGUAGES = {"eng", "spa", "jpn", "jpn_vert"};
     private static final String APP_TITLE = "SunVisor OCR - Manga Edition";
+    
+    // Tipos de alfabeto disponibles
+    private enum AlphabetType {
+        LATIN("Alfabeto Latino", "eng+spa", false),
+        JAPANESE("Alfabeto Japonés", "jpn+jpn_vert", true);
+        
+        final String displayName;
+        final String tessCode;
+        final boolean needsAdvancedPreprocessing;
+        
+        AlphabetType(String displayName, String tessCode, boolean needsAdvancedPreprocessing) {
+            this.displayName = displayName;
+            this.tessCode = tessCode;
+            this.needsAdvancedPreprocessing = needsAdvancedPreprocessing;
+        }
+        
+        @Override
+        public String toString() {
+            return displayName;
+        }
+    }
     
     // ==================== VARIABLES DE INSTANCIA ====================
     private final ITesseract tesseract = new Tesseract();
@@ -46,6 +67,10 @@ public class App extends Application {
     private Button startButton;
     private Label statusLabel;
     private ProgressIndicator loadingIndicator;
+    private ChoiceBox<AlphabetType> languageSelector;
+    
+    // Selected alphabet type
+    private AlphabetType selectedAlphabet = AlphabetType.JAPANESE; // Por defecto japonés
     
     // OCR Components
     private GlobalKeyboardListener globalKeyListener;
@@ -282,8 +307,33 @@ public class App extends Application {
         );
 
         // Informacion de atajo
-        Text shortcutInfo = new Text("⌨️ Atajo de teclado: Ctrl+Shift+S");
+        Text shortcutInfo = new Text("Atajo de teclado: Ctrl+Shift+T");
         shortcutInfo.setStyle("-fx-font-size: 11px; -fx-fill: #999;");
+
+        // Selector de alfabeto
+        Label languageLabel = new Label("Tipo de texto:");
+        languageLabel.setStyle("-fx-font-size: 12px; -fx-font-weight: bold;");
+        
+        languageSelector = new ChoiceBox<>();
+        languageSelector.getItems().addAll(AlphabetType.values());
+        languageSelector.setValue(selectedAlphabet);
+        languageSelector.setPrefWidth(300);
+        languageSelector.setStyle("-fx-font-size: 12px;");
+        
+        // Tooltip del selector
+        Tooltip languageTooltip = new Tooltip(
+            "Selecciona el tipo de alfabeto del texto:\n" +
+            "• Alfabeto Latino: Español, Inglés (procesamiento rápido)\n" +
+            "• Alfabeto Japonés: Hiragana, Katakana, Kanji (usa Manga OCR si está disponible)"
+        );
+        languageSelector.setTooltip(languageTooltip);
+        
+        // Actualizar alfabeto cuando cambie
+        languageSelector.setOnAction(e -> {
+            selectedAlphabet = languageSelector.getValue();
+            LOGGER.info("Alfabeto seleccionado: " + selectedAlphabet.displayName);
+            actualizarTesseractLanguage();
+        });
 
         // Separador
         Separator separator = new Separator();
@@ -296,6 +346,8 @@ public class App extends Application {
             titleLabel,
             engineStatusLabel,
             separator,
+            languageLabel,
+            languageSelector,
             startButton,
             shortcutInfo
         );
@@ -343,9 +395,17 @@ public class App extends Application {
 
     private void configurarTesseract(String tessdataPath) {
         tesseract.setDatapath(tessdataPath);
-        tesseract.setLanguage("jpn+eng+spa");
+        actualizarTesseractLanguage();
         tesseract.setPageSegMode(3);
         tesseract.setOcrEngineMode(1);
+    }
+    
+    /**
+     * Actualiza el idioma de Tesseract según la selección del usuario
+     */
+    private void actualizarTesseractLanguage() {
+        tesseract.setLanguage(selectedAlphabet.tessCode);
+        LOGGER.info("Tesseract configurado con alfabeto: " + selectedAlphabet.tessCode);
     }
 
     private String prepararTessdata() {
@@ -458,8 +518,9 @@ public class App extends Application {
                 String texto = null;
                 String motorUsado = "";
                 
-                // Intentar con Manga OCR primero
-                if (useMangaOCR && mangaOCR != null && mangaOCR.isServerAvailable()) {
+                // Intentar con Manga OCR solo si es alfabeto japonés
+                if (selectedAlphabet == AlphabetType.JAPANESE && 
+                    useMangaOCR && mangaOCR != null && mangaOCR.isServerAvailable()) {
                     try {
                         LOGGER.info("Procesando con Manga OCR...");
                         texto = mangaOCR.processImage(img);
@@ -473,18 +534,18 @@ public class App extends Application {
                     }
                 }
                 
-                // Fallback a Tesseract si Manga OCR no funciono
+                // Usar Tesseract si Manga OCR no funciono o si es alfabeto latino
                 if (texto == null) {
-                    LOGGER.info("Procesando con Tesseract...");
+                    LOGGER.info("Procesando con Tesseract (" + selectedAlphabet.displayName + ")...");
                     
-                    // Preprocesar imagen para mejorar precision
+                    // Preprocesar imagen según el alfabeto seleccionado
                     long t0 = System.nanoTime();
-                    img = ImagePreprocessor.preprocess(img, true);
+                    img = ImagePreprocessor.preprocess(img, selectedAlphabet.needsAdvancedPreprocessing);
                     long preprocessMs = (System.nanoTime() - t0) / 1_000_000;
                     LOGGER.info("Preprocesamiento completado en " + preprocessMs + " ms");
                     
                     texto = tesseract.doOCR(img);
-                    motorUsado = "Tesseract";
+                    motorUsado = "Tesseract (" + selectedAlphabet.displayName + ")";
                     LOGGER.info("Tesseract completado");
                 }
 

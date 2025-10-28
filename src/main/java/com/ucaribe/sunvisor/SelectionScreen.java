@@ -46,11 +46,12 @@ public class SelectionScreen {
 
         System.out.println("SelectionScreen #" + idInstancia + " CREADA");
 
-        Rectangle2D bounds = Screen.getPrimary().getVisualBounds();
+        // Calcular bounds que cubra TODAS las pantallas
+        Rectangle2D bounds = calcularBoundsTotalPantallas();
         this.screenWidth = bounds.getWidth();
         this.screenHeight = bounds.getHeight();
 
-        // Capturar screenshot de la pantalla
+        // Capturar screenshot de TODAS las pantallas
         ImageView screenshotView = capturarPantalla(bounds);
 
         stage = new Stage();
@@ -115,6 +116,32 @@ public class SelectionScreen {
                 cerrarVentana(null);
             }
         });
+    }
+
+    /**
+     * Calcula el rectángulo que engloba TODAS las pantallas disponibles
+     */
+    private Rectangle2D calcularBoundsTotalPantallas() {
+        double minX = Double.MAX_VALUE;
+        double minY = Double.MAX_VALUE;
+        double maxX = Double.MIN_VALUE;
+        double maxY = Double.MIN_VALUE;
+
+        for (Screen screen : Screen.getScreens()) {
+            Rectangle2D bounds = screen.getBounds();
+            minX = Math.min(minX, bounds.getMinX());
+            minY = Math.min(minY, bounds.getMinY());
+            maxX = Math.max(maxX, bounds.getMaxX());
+            maxY = Math.max(maxY, bounds.getMaxY());
+        }
+
+        double width = maxX - minX;
+        double height = maxY - minY;
+        
+        System.out.println("[Multi-Monitor] Total bounds: " + minX + "," + minY + " " + width + "x" + height);
+        System.out.println("[Multi-Monitor] Pantallas detectadas: " + Screen.getScreens().size());
+        
+        return new Rectangle2D(minX, minY, width, height);
     }
 
     // Captura la pantalla y retorna un ImageView

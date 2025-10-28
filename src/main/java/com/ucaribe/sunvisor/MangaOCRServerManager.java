@@ -65,7 +65,7 @@ public class MangaOCRServerManager {
             // Leer logs del servidor en thread separado
             iniciarLectorLogs();
             
-            LOGGER.info("✅ Servidor FastAPI iniciado (PID: " + serverProcess.pid() + ")");
+            LOGGER.info("Servidor FastAPI iniciado (PID: " + serverProcess.pid() + ")");
             
             return true;
             
