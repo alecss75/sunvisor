@@ -61,6 +61,17 @@
 
     </dependencies>
     <build>
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+                <excludes>
+                    <!-- Excluir venv de Python y archivos cache -->
+                    <exclude>backend/venv/**</exclude>
+                    <exclude>**/__pycache__/**</exclude>
+                    <exclude>**/*.pyc</exclude>
+                </excludes>
+            </resource>
+        </resources>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>

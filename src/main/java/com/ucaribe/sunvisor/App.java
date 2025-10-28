@@ -19,6 +19,9 @@ import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.util.logging.Logger;
 import java.util.logging.Level;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 import net.sourceforge.tess4j.ITesseract;
 import net.sourceforge.tess4j.Tesseract;
@@ -49,6 +52,10 @@ public class App extends Application {
     private MangaOCRServerManager serverManager;
     private MangaOCRClient mangaOCR;
     private boolean useMangaOCR = false;
+    
+    // Performance Optimization: Reutilizar Robot y usar ExecutorService
+    private Robot robot;
+    private final ExecutorService ocrExecutor = Executors.newSingleThreadExecutor();
 
     // ==================== INICIO DE APLICACIoN ====================
     
@@ -76,12 +83,20 @@ public class App extends Application {
         }).start();
     }
 
-    
     // Inicializa todos los componentes de la aplicacion
     private void inicializarAplicacion() throws Exception {
         LOGGER.info("=".repeat(60));
         LOGGER.info("Iniciando SunVisor OCR - Manga Edition");
         LOGGER.info("=".repeat(60));
+        
+        // Inicializar Robot (reutilizar para todas las capturas)
+        try {
+            robot = new Robot();
+            LOGGER.info("Robot inicializado");
+        } catch (java.awt.AWTException e) {
+            LOGGER.log(Level.SEVERE, "No se pudo crear Robot", e);
+            throw new Exception("No se pudo crear Robot para capturar pantalla", e);
+        }
         
         // Inicializar Tesseract 
         actualizarEstado("Inicializando Tesseract...");
@@ -92,7 +107,7 @@ public class App extends Application {
 
         // 2. Intentar iniciar servidor Manga OCR
         actualizarEstado("Iniciando Manga OCR Server...");
-        boolean serverIniciado = iniciarMangaOCRServer();
+        iniciarMangaOCRServer();
 
         // 3. Configurar atajos globales
         actualizarEstado("Configurando atajos de teclado...");
@@ -432,12 +447,12 @@ public class App extends Application {
             startButton.setText("Procesando...");
         });
 
-        // Ejecutar OCR en thread separado
-        new Thread(() -> {
+        // Ejecutar OCR en thread separado usando ExecutorService
+        ocrExecutor.submit(() -> {
             try {
-                LOGGER.info("Capturando imagen del...");
+                LOGGER.info("Capturando imagen del area...");
                 
-                Robot robot = new Robot();
+                // Reutilizar instancia de Robot
                 BufferedImage img = robot.createScreenCapture(area);
                 
                 String texto = null;
@@ -463,7 +478,10 @@ public class App extends Application {
                     LOGGER.info("Procesando con Tesseract...");
                     
                     // Preprocesar imagen para mejorar precision
+                    long t0 = System.nanoTime();
                     img = ImagePreprocessor.preprocess(img, true);
+                    long preprocessMs = (System.nanoTime() - t0) / 1_000_000;
+                    LOGGER.info("Preprocesamiento completado en " + preprocessMs + " ms");
                     
                     texto = tesseract.doOCR(img);
                     motorUsado = "Tesseract";
@@ -481,7 +499,7 @@ public class App extends Application {
                             "No se detecto texto en el area seleccionada.\n" +
                             "Motor usado: " + motorFinal + "\n\n" +
                             "Sugerencias:\n" +
-                            "• Selecciona solo el area del\n" +
+                            "• Selecciona solo el area del texto\n" +
                             "• Asegurate de que el texto sea claro\n" +
                             "• Aumenta el tamaño del area seleccionada");
                     });
@@ -502,15 +520,6 @@ public class App extends Application {
                     win.show();
                 });
 
-            } catch (java.awt.AWTException e) {
-                LOGGER.log(Level.SEVERE, "Error al capturar pantalla", e);
-                Platform.runLater(() -> {
-                    startButton.setText("Capturar");
-                    mostrarError("Error de Captura", 
-                        "No se pudo capturar la pantalla.\n" +
-                        "Error: " + e.getMessage());
-                });
-                
             } catch (Exception e) {
                 LOGGER.log(Level.SEVERE, "Error durante OCR", e);
                 Platform.runLater(() -> {
@@ -520,7 +529,7 @@ public class App extends Application {
                         "Error: " + e.getMessage());
                 });
             }
-        }).start();
+        });
     }
 
     // ==================== CIERRE DE APLICACIoN ====================
@@ -545,6 +554,21 @@ public class App extends Application {
                 currentScreen.forceClose();
             } catch (Exception e) {
                 LOGGER.log(Level.WARNING, "Error al cerrar SelectionScreen", e);
+            }
+        }
+        
+        // Detener ExecutorService de forma ordenada
+        if (ocrExecutor != null) {
+            ocrExecutor.shutdown();
+            try {
+                if (!ocrExecutor.awaitTermination(3, TimeUnit.SECONDS)) {
+                    LOGGER.warning("Timeout esperando OCR executor, forzando shutdown...");
+                    ocrExecutor.shutdownNow();
+                }
+            } catch (InterruptedException ex) {
+                LOGGER.warning("Interrupcion durante shutdown del executor");
+                ocrExecutor.shutdownNow();
+                Thread.currentThread().interrupt();
             }
         }
         

@@ -3,7 +3,6 @@ package com.ucaribe.sunvisor;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
-import java.awt.Color;
 import java.util.logging.Logger;
 
 public class ImagePreprocessor {
@@ -77,28 +76,33 @@ public class ImagePreprocessor {
         return grayscale;
     }
 
-    // Aumenta el contraste de la imagen
+    // Aumenta el contraste de la imagen (optimizado con array de pixeles)
     private static BufferedImage increaseContrast(BufferedImage original) {
-        BufferedImage result = new BufferedImage(
-                original.getWidth(),
-                original.getHeight(),
-                original.getType());
+        int w = original.getWidth();
+        int h = original.getHeight();
+        BufferedImage result = new BufferedImage(w, h, BufferedImage.TYPE_INT_RGB);
+        float factor = 1.5f;
 
-        float contrastFactor = 1.5f; // Factor de contraste
+        // Obtener todos los pixeles de una vez (mucho mas rapido que getRGB por pixel)
+        int[] pixels = original.getRGB(0, 0, w, h, null, 0, w);
+        
+        // Procesar pixeles usando bit operations (evita crear objetos Color)
+        for (int i = 0; i < pixels.length; i++) {
+            int rgb = pixels[i];
+            int a = (rgb >> 24) & 0xFF;
+            int r = (rgb >> 16) & 0xFF;
+            int g = (rgb >> 8) & 0xFF;
+            int b = rgb & 0xFF;
 
-        for (int y = 0; y < original.getHeight(); y++) {
-            for (int x = 0; x < original.getWidth(); x++) {
-                Color color = new Color(original.getRGB(x, y));
+            r = adjustChannel(r, factor);
+            g = adjustChannel(g, factor);
+            b = adjustChannel(b, factor);
 
-                int red = adjustChannel(color.getRed(), contrastFactor);
-                int green = adjustChannel(color.getGreen(), contrastFactor);
-                int blue = adjustChannel(color.getBlue(), contrastFactor);
-
-                Color newColor = new Color(red, green, blue);
-                result.setRGB(x, y, newColor.getRGB());
-            }
+            pixels[i] = (a << 24) | (r << 16) | (g << 8) | b;
         }
-
+        
+        // Escribir todos los pixeles de una vez
+        result.setRGB(0, 0, w, h, pixels, 0, w);
         return result;
     }
 
@@ -108,39 +112,41 @@ public class ImagePreprocessor {
         return Math.max(0, Math.min(255, adjusted));
     }
 
-    // Binarizacion (blanco y negro puro) usando Otsu's method simplificado
+    // Binarizacion (blanco y negro puro) optimizada con arrays
     private static BufferedImage binarize(BufferedImage original) {
-        BufferedImage binarized = new BufferedImage(
-                original.getWidth(),
-                original.getHeight(),
-                BufferedImage.TYPE_BYTE_BINARY);
+        int w = original.getWidth();
+        int h = original.getHeight();
+        
+        // Obtener todos los pixeles de una vez
+        int[] pixels = original.getRGB(0, 0, w, h, null, 0, w);
 
-        // Calcular umbral promedio
+        // Calcular umbral promedio (sin crear objetos Color)
         long sum = 0;
-        int count = 0;
-
-        for (int y = 0; y < original.getHeight(); y++) {
-            for (int x = 0; x < original.getWidth(); x++) {
-                Color color = new Color(original.getRGB(x, y));
-                int gray = (color.getRed() + color.getGreen() + color.getBlue()) / 3;
-                sum += gray;
-                count++;
-            }
+        for (int i = 0; i < pixels.length; i++) {
+            int rgb = pixels[i];
+            int r = (rgb >> 16) & 0xFF;
+            int g = (rgb >> 8) & 0xFF;
+            int b = rgb & 0xFF;
+            int gray = (r + g + b) / 3;
+            sum += gray;
         }
-
-        int threshold = (int) (sum / count);
+        int threshold = (int) (sum / pixels.length);
 
         // Aplicar umbral
-        for (int y = 0; y < original.getHeight(); y++) {
-            for (int x = 0; x < original.getWidth(); x++) {
-                Color color = new Color(original.getRGB(x, y));
-                int gray = (color.getRed() + color.getGreen() + color.getBlue()) / 3;
-
-                int newColor = (gray > threshold) ? Color.WHITE.getRGB() : Color.BLACK.getRGB();
-                binarized.setRGB(x, y, newColor);
-            }
+        int white = 0xFFFFFFFF;
+        int black = 0xFF000000;
+        for (int i = 0; i < pixels.length; i++) {
+            int rgb = pixels[i];
+            int r = (rgb >> 16) & 0xFF;
+            int g = (rgb >> 8) & 0xFF;
+            int b = rgb & 0xFF;
+            int gray = (r + g + b) / 3;
+            
+            pixels[i] = (gray > threshold) ? white : black;
         }
 
+        BufferedImage binarized = new BufferedImage(w, h, BufferedImage.TYPE_BYTE_BINARY);
+        binarized.setRGB(0, 0, w, h, pixels, 0, w);
         return binarized;
     }
 }
