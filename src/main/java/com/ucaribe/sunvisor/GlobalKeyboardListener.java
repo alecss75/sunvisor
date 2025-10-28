@@ -1,4 +1,4 @@
-package sun.visor;
+package com.ucaribe.sunvisor;
 
 import com.github.kwhat.jnativehook.GlobalScreen;
 import com.github.kwhat.jnativehook.NativeHookException;
@@ -47,7 +47,7 @@ public class GlobalKeyboardListener implements NativeKeyListener {
             // Agregar este listener
             GlobalScreen.addNativeKeyListener(this);
 
-            LOGGER.info("Atajos de teclado globales activados: Ctrl+VC_ALT+T");
+            LOGGER.info("Atajos de teclado globales activados: Ctrl+ALT+T");
 
         } catch (NativeHookException e) {
             LOGGER.log(Level.SEVERE, "Error al registrar atajos globales", e);
@@ -87,11 +87,11 @@ public class GlobalKeyboardListener implements NativeKeyListener {
             tPressed = true;
         }
         
-        System.out.println("hola" + ctrlPressed + altPressed + tPressed);
+        // System.out.println("hola" + ctrlPressed + altPressed + tPressed);
 
         // Detectar Ctrl+VC_ALT+T
         if (ctrlPressed && altPressed && e.getKeyCode() == NativeKeyEvent.VC_T) {
-            LOGGER.info("Atajo detectado: Ctrl+VC_ALT+T");
+            LOGGER.info("Atajo detectado: Ctrl+ALT+T");
 
             if (onHotkeyPressed != null) {
                 // Ejecutar en hilo separado para no bloquear el hook

@@ -1,4 +1,4 @@
-package sun.visor;
+package com.ucaribe.sunvisor;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -77,7 +77,7 @@ public class TranslationService {
 
             // 6. ¡Magia! Usar Gson para convertir el String de respuesta JSON
             // en nuestro objeto Java (TranslationResponse).
-            TranslationResponse translationResponse = gson.fromJson(response.body(), TranslationResponse.class);
+            com.ucaribe.sunvisor.TranslationResponse translationResponse = gson.fromJson(response.body(), com.ucaribe.sunvisor.TranslationResponse.class);
 
             // 7. Devolver el texto traducido
             return translationResponse.getTranslatedText();

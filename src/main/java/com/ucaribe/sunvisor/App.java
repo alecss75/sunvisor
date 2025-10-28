@@ -1,11 +1,9 @@
-package sun.visor;
+package com.ucaribe.sunvisor;
 
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.scene.Scene;
-import javafx.scene.control.Alert;
-import javafx.scene.control.Button;
-import javafx.scene.layout.StackPane;
+import javafx.scene.control.*;
 import javafx.scene.layout.VBox;
 import javafx.scene.text.Text;
 import javafx.stage.Stage;
@@ -30,10 +28,13 @@ public class App extends Application {
     // ==================== CONSTANTES ====================
     private static final Logger LOGGER = Logger.getLogger(App.class.getName());
     private static final double WINDOW_WIDTH = 350;
-    private static final double WINDOW_HEIGHT = 200;
+    private static final double WINDOW_HEIGHT = 180;
     private static final String TESSDATA_DIR = "tessdata";
-    private static final String[] LANGUAGES = { "eng", "spa", "jpn" };
+    private static final String[] LANGUAGES = { "eng", "spa", "jpn", "jpn_vert" };
     private static final String APP_TITLE = "SunVisor OCR";
+
+    // Usar siempre todos los idiomas
+    private static final String OCR_LANGUAGES = "spa+eng+jpn";
 
     // ==================== VARIABLES DE INSTANCIA ====================
     private final ITesseract tesseract = new Tesseract();
@@ -41,8 +42,6 @@ public class App extends Application {
     private Stage primaryStage;
     private boolean isProcessing = false;
     private Button startButton;
-
-    // Listener de atajos globales
     private GlobalKeyboardListener globalKeyListener;
 
     @Override
@@ -50,7 +49,6 @@ public class App extends Application {
         this.primaryStage = stage;
         stage.setTitle(APP_TITLE);
 
-        // Preparar Tesseract
         if (!inicializarTesseract()) {
             mostrarError("Error Fatal",
                     "No se pudo inicializar Tesseract OCR.\n" +
@@ -59,22 +57,15 @@ public class App extends Application {
             return;
         }
 
-        // Configurar atajos globales
         configurarAtajosGlobales();
-
-        // Configurar GUI
         configurarInterfaz(stage);
 
-        LOGGER.info("Aplicacion iniciada correctamente");
+        LOGGER.info("Aplicación lista - Idiomas: " + OCR_LANGUAGES);
         LOGGER.info("Atajo global: Ctrl+Shift+T");
     }
 
-    /**
-     * Configura los atajos de teclado globales
-     */
     private void configurarAtajosGlobales() {
         globalKeyListener = new GlobalKeyboardListener(() -> {
-            // Este codigo se ejecuta cuando se presiona Ctrl+Shift+S
             Platform.runLater(() -> {
                 iniciarSeleccionSecuencial();
             });
@@ -83,22 +74,57 @@ public class App extends Application {
         globalKeyListener.register();
     }
 
+    /**
+     * INTERFAZ
+     */
     private void configurarInterfaz(Stage stage) {
-        // Boton principal
-        startButton = new Button("Iniciar Seleccion OCR");
+        // Título
+        Label titleLabel = new Label("📸 SunVisor OCR");
+        titleLabel.setStyle("-fx-font-size: 20px; -fx-font-weight: bold;");
+
+        // Botón principal (más grande y centrado)
+        startButton = new Button("🔍 Iniciar Captura");
         startButton.setOnAction(e -> iniciarSeleccionSecuencial());
-        startButton.setPrefWidth(250);
-        startButton.setPrefHeight(50);
-        startButton.setStyle("-fx-font-size: 14px;");
+        startButton.setPrefWidth(280);
+        startButton.setPrefHeight(60);
+        startButton.setStyle(
+                "-fx-font-size: 16px; " +
+                        "-fx-font-weight: bold; " +
+                        "-fx-background-color: #4CAF50; " +
+                        "-fx-text-fill: white; " +
+                        "-fx-background-radius: 8px;");
 
-        // Texto informativo sobre el atajo
-        Text infoText = new Text("Atajo de teclado: Ctrl+Alt+T");
-        infoText.setStyle("-fx-font-size: 12px; -fx-fill: gray;");
+        // Efecto hover
+        startButton.setOnMouseEntered(e -> startButton.setStyle(
+                "-fx-font-size: 16px; " +
+                        "-fx-font-weight: bold; " +
+                        "-fx-background-color: #45a049; " +
+                        "-fx-text-fill: white; " +
+                        "-fx-background-radius: 8px;"));
+        startButton.setOnMouseExited(e -> startButton.setStyle(
+                "-fx-font-size: 16px; " +
+                        "-fx-font-weight: bold; " +
+                        "-fx-background-color: #4CAF50; " +
+                        "-fx-text-fill: white; " +
+                        "-fx-background-radius: 8px;"));
 
+        // Info de idiomas
+        Text languageInfo = new Text("🌐 Detecta: Español, English, 日本語");
+        languageInfo.setStyle("-fx-font-size: 11px; -fx-fill: #666;");
+
+        // Info de atajo
+        Text shortcutInfo = new Text("⌨Atajo: Ctrl+Shift+T");
+        shortcutInfo.setStyle("-fx-font-size: 11px; -fx-fill: #999;");
+
+        // Layout
         VBox root = new VBox(15);
         root.setAlignment(Pos.CENTER);
-        root.setPadding(new Insets(20));
-        root.getChildren().addAll(startButton, infoText);
+        root.setPadding(new Insets(25));
+        root.getChildren().addAll(
+                titleLabel,
+                startButton,
+                languageInfo,
+                shortcutInfo);
 
         Scene scene = new Scene(root, WINDOW_WIDTH, WINDOW_HEIGHT);
 
@@ -114,7 +140,6 @@ public class App extends Application {
     }
 
     private void cerrarAplicacion() {
-        // Desregistrar atajos globales
         if (globalKeyListener != null) {
             globalKeyListener.unregister();
         }
@@ -126,10 +151,10 @@ public class App extends Application {
                 LOGGER.log(Level.WARNING, "Error al cerrar SelectionScreen", e);
             }
         }
-        LOGGER.info("Aplicacion cerrada");
+        LOGGER.info("Aplicación cerrada");
     }
 
-    // ==================== INICIALIZACIoN DE TESSERACT ====================
+    // ==================== INICIALIZACIÓN DE TESSERACT ====================
 
     private boolean inicializarTesseract() {
         try {
@@ -150,13 +175,16 @@ public class App extends Application {
         }
     }
 
+    /**
+     * ✅ SIMPLIFICADO: Configuración fija con todos los idiomas
+     */
     private void configurarTesseract(String tessdataPath) {
         tesseract.setDatapath(tessdataPath);
-        tesseract.setLanguage(String.join("+", LANGUAGES));
-        tesseract.setPageSegMode(3); // Automatic sin OSD
+        tesseract.setLanguage(OCR_LANGUAGES); // Siempre todos los idiomas
+        tesseract.setPageSegMode(3); // Automatic page segmentation
         tesseract.setOcrEngineMode(1); // LSTM only
 
-        LOGGER.info("Tesseract configurado con idiomas: " + String.join(", ", LANGUAGES));
+        LOGGER.info("Tesseract configurado con: " + OCR_LANGUAGES);
     }
 
     private String prepararTessdata() {
@@ -202,7 +230,7 @@ public class App extends Application {
             String resourcePath = "/tessdata/" + fileName;
             try (InputStream in = getClass().getResourceAsStream(resourcePath)) {
                 if (in == null) {
-                    LOGGER.warning("No se encontro el recurso: " + resourcePath);
+                    LOGGER.warning("No se encontró el recurso: " + resourcePath);
                     return false;
                 }
 
@@ -217,14 +245,11 @@ public class App extends Application {
         }
     }
 
-    // ==================== LoGICA DE SELECCIoN ====================
+    // ==================== LÓGICA DE SELECCIÓN ====================
 
     private void iniciarSeleccionSecuencial() {
         if (isProcessing) {
             LOGGER.warning("Proceso ya activo, ignorando llamada");
-            mostrarAdvertencia("Proceso Activo",
-                    "Ya hay un proceso de seleccion en curso.\n" +
-                            "Por favor, espera a que finalice.");
             return;
         }
 
@@ -237,7 +262,7 @@ public class App extends Application {
 
         primaryStage.hide();
 
-        LOGGER.info("Iniciando seleccion de área");
+        LOGGER.info("Iniciando selección de área");
 
         currentScreen = new SelectionScreen(area -> {
             Platform.runLater(() -> {
@@ -257,7 +282,7 @@ public class App extends Application {
                             area.x, area.y, area.width, area.height));
             hacerOCR(area);
         } else {
-            LOGGER.info("Seleccion cancelada o área inválida");
+            LOGGER.info("Selección cancelada o área inválida");
         }
 
         primaryStage.show();
@@ -267,6 +292,9 @@ public class App extends Application {
 
     // ==================== PROCESAMIENTO OCR ====================
 
+    /**
+     * OCR con preprocesamiento inteligente
+     */
     private void hacerOCR(Rectangle area) {
         try {
             LOGGER.info("Capturando área de pantalla...");
@@ -274,23 +302,26 @@ public class App extends Application {
             Robot robot = new Robot();
             BufferedImage img = robot.createScreenCapture(area);
 
-            LOGGER.info("Ejecutando OCR...");
+            // Siempre aplicar preprocesamiento ligero
+            img = ImagePreprocessor.preprocess(img, true);
+
+            LOGGER.info("Ejecutando OCR multi-idioma...");
 
             String texto = tesseract.doOCR(img);
 
             if (texto == null || texto.trim().isEmpty()) {
-                LOGGER.info("No se detecto texto en el área seleccionada");
+                LOGGER.info("No se detectó texto");
                 mostrarInfo("Sin Resultados",
-                        "No se detecto texto en el área seleccionada.\n\n" +
+                        "No se detectó texto en el área seleccionada.\n\n" +
                                 "Sugerencias:\n" +
-                                "• Asegúrate de que el área contenga texto legible\n" +
                                 "• Aumenta el tamaño del área seleccionada\n" +
-                                "• Verifica que el texto tenga buen contraste");
+                                "• Asegúrate de que haya buen contraste\n" +
+                                "• El texto debe ser claro y legible");
                 return;
             }
 
             int caracteres = texto.trim().length();
-            LOGGER.info("Texto detectado: " + caracteres + " caracteres");
+            LOGGER.info("✅ Texto detectado: " + caracteres + " caracteres");
 
             Platform.runLater(() -> {
                 ResultWindow win = new ResultWindow(texto.trim());
@@ -319,10 +350,6 @@ public class App extends Application {
 
     private void mostrarInfo(String titulo, String mensaje) {
         mostrarAlerta(Alert.AlertType.INFORMATION, titulo, mensaje);
-    }
-
-    private void mostrarAdvertencia(String titulo, String mensaje) {
-        mostrarAlerta(Alert.AlertType.WARNING, titulo, mensaje);
     }
 
     private void mostrarAlerta(Alert.AlertType tipo, String titulo, String mensaje) {

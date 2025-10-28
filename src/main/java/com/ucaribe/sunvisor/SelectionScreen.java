@@ -1,4 +1,4 @@
-package sun.visor;
+package com.ucaribe.sunvisor;
 
 import javafx.application.Platform;
 import javafx.embed.swing.SwingFXUtils;

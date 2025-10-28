@@ -1,4 +1,4 @@
-package sun.visor;
+package com.ucaribe.sunvisor;
 
 /**
  * Esta clase es un "POJO" (Plain Old Java Object).
