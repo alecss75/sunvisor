@@ -10,9 +10,7 @@ import java.util.List;
 import java.util.logging.Logger;
 import java.util.logging.Level;
 
-/**
- * Gestiona el ciclo de vida del servidor Manga OCR FastAPI
- */
+// Gestiona el ciclo de vida del servidor Manga OCR FastAPI
 public class MangaOCRServerManager {
     
     private static final Logger LOGGER = Logger.getLogger(MangaOCRServerManager.class.getName());
@@ -22,25 +20,25 @@ public class MangaOCRServerManager {
     private Process serverProcess;
     private Thread logReaderThread;
     
-    /**
-     * Inicia el servidor FastAPI
-     * @return true si se inició correctamente
-     */
+    ///////////////////////////////////////////////
+    // Inicia el servidor FastAPI               //
+    // @return true si se inicio correctamente  //
+    //////////////////////////////////////////////
     public boolean iniciarServidor() {
         try {
             // Buscar el script Python
             File scriptFile = encontrarScript();
             
             if (scriptFile == null || !scriptFile.exists()) {
-                LOGGER.warning("No se encontró " + PYTHON_SCRIPT);
+                LOGGER.warning("No se encontro " + PYTHON_SCRIPT);
                 return false;
             }
             
             LOGGER.info("Iniciando servidor FastAPI: " + scriptFile.getAbsolutePath());
             
-            // Verificar que Python esté instalado
+            // Verificar que Python este instalado
             if (!verificarPython()) {
-                LOGGER.severe("Python no está instalado o no está en PATH");
+                LOGGER.severe("Python no esta instalado o no esta en PATH");
                 return false;
             }
             
@@ -90,7 +88,7 @@ public class MangaOCRServerManager {
             try {
                 boolean terminated = serverProcess.waitFor(5, java.util.concurrent.TimeUnit.SECONDS);
                 if (!terminated) {
-                    LOGGER.warning("Servidor no respondió, forzando cierre...");
+                    LOGGER.warning("Servidor no respondio, forzando cierre...");
                     serverProcess.destroyForcibly();
                 }
             } catch (InterruptedException e) {
@@ -107,7 +105,7 @@ public class MangaOCRServerManager {
     }
     
     /**
-     * Verifica si el servidor está ejecutándose
+     * Verifica si el servidor esta ejecutandose
      */
     public boolean estaEjecutandose() {
         return serverProcess != null && serverProcess.isAlive();
@@ -133,7 +131,7 @@ public class MangaOCRServerManager {
             }
         }
         
-        // 2. Intentar desde classpath (cuando está empaquetado)
+        // 2. Intentar desde classpath (cuando esta empaquetado)
         try {
             File tempDir = new File(System.getProperty("java.io.tmpdir"), "manga-ocr-server");
             tempDir.mkdirs();
@@ -145,7 +143,7 @@ public class MangaOCRServerManager {
                 try (var in = getClass().getResourceAsStream("/backend/" + PYTHON_SCRIPT)) {
                     if (in != null) {
                         java.nio.file.Files.copy(in, scriptFile.toPath());
-                        LOGGER.info("Script extraído a: " + scriptFile.getAbsolutePath());
+                        LOGGER.info("Script extraido a: " + scriptFile.getAbsolutePath());
                         return scriptFile;
                     }
                 }
@@ -161,7 +159,7 @@ public class MangaOCRServerManager {
     }
     
     /**
-     * Verifica que Python esté instalado
+     * Verifica que Python este instalado
      */
     private boolean verificarPython() {
         try {
@@ -186,9 +184,7 @@ public class MangaOCRServerManager {
         }
     }
     
-    /**
-     * Obtiene el comando de Python según el SO
-     */
+    // Obtiene el comando de Python segun el SO
     private String getPythonCommand() {
         String os = System.getProperty("os.name").toLowerCase();
         
@@ -201,9 +197,7 @@ public class MangaOCRServerManager {
         return "python3";
     }
     
-    /**
-     * Inicia thread para leer logs del servidor
-     */
+    // Inicia thread para leer logs del servidor
     private void iniciarLectorLogs() {
         logReaderThread = new Thread(() -> {
             try (BufferedReader reader = new BufferedReader(

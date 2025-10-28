@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title="Manga OCR API",
-    description="API para reconocimiento de texto en manga japonés",
+    description="API para reconocimiento de texto en manga japones",
     version="1.0.0"
 )
 
@@ -32,12 +32,12 @@ app.add_middleware(
 )
 
 # ✅ Inicializar Manga OCR una sola vez
-logger.info("🎌 Inicializando Manga OCR...")
+logger.info("Inicializando Manga OCR...")
 try:
     mocr = MangaOcr()
     logger.info("✅ Manga OCR listo")
 except Exception as e:
-    logger.error(f"❌ Error al cargar Manga OCR: {e}")
+    logger.error(f"Error al cargar Manga OCR: {e}")
     sys.exit(1)
 
 class ImageInput(BaseModel):
@@ -52,7 +52,7 @@ class OCRResponse(BaseModel):
 
 @app.get("/")
 def root():
-    """Endpoint raíz - información básica"""
+    """Endpoint raiz - informacion basica"""
     return {
         "service": "Manga OCR API",
         "version": "1.0.0",
@@ -66,8 +66,8 @@ def root():
 @app.get("/health")
 def health_check():
     """
-    Endpoint para verificar que el servidor está funcionando.
-    Usado por Java para detectar si el servidor está listo.
+    Endpoint para verificar que el servidor esta funcionando.
+    Usado por Java para detectar si el servidor esta listo.
     """
     return {
         "status": "healthy",
@@ -84,22 +84,22 @@ def process_manga_ocr(input_data: ImageInput):
         input_data: Objeto con la imagen en base64
         
     Returns:
-        OCRResponse con el texto extraído
+        OCRResponse con el texto extraido
     """
     try:
-        logger.info("📥 Recibiendo imagen para OCR...")
+        logger.info(" Recibiendo imagen para OCR...")
         
         # Decodificar la imagen Base64
         image_data = b64decode(input_data.image_base64)
         image = Image.open(BytesIO(image_data))
         
-        logger.info(f"🖼️  Imagen cargada: {image.size} ({image.mode})")
+        logger.info(f"Imagen cargada: {image.size} ({image.mode})")
 
         # Realizar el OCR con manga-ocr
         extracted_text = mocr(image)
         
-        logger.info(f"✅ OCR completado: {len(extracted_text)} caracteres")
-        logger.info(f"📝 Texto: {extracted_text[:50]}...")
+        logger.info(f"OCR completado: {len(extracted_text)} caracteres")
+        logger.info(f"Texto: {extracted_text[:50]}...")
 
         return OCRResponse(
             status="success",
@@ -108,7 +108,7 @@ def process_manga_ocr(input_data: ImageInput):
         )
 
     except Exception as e:
-        logger.error(f"❌ Error en OCR: {str(e)}")
+        logger.error(f"Error en OCR: {str(e)}")
         raise HTTPException(
             status_code=500,
             detail=str(e)
@@ -118,10 +118,10 @@ def process_manga_ocr(input_data: ImageInput):
 async def startup_event():
     """Evento al iniciar el servidor"""
     logger.info("=" * 60)
-    logger.info("🎌 Manga OCR API Server")
+    logger.info("Manga OCR API Server")
     logger.info("Puerto: 8080")
     logger.info("Endpoints disponibles:")
-    logger.info("  - GET  /         (Información)")
+    logger.info("  - GET  /         (Informacion)")
     logger.info("  - GET  /health   (Estado)")
     logger.info("  - POST /ocr/manga (OCR)")
     logger.info("=" * 60)
@@ -129,12 +129,12 @@ async def startup_event():
 @app.on_event("shutdown")
 async def shutdown_event():
     """Evento al cerrar el servidor"""
-    logger.info("🛑 Cerrando Manga OCR API Server...")
+    logger.info("Cerrando Manga OCR API Server...")
 
 if __name__ == "__main__":
     import uvicorn
     
-    # Configuración del servidor
+    # Configuracion del servidor
     uvicorn.run(
         app,
         host="127.0.0.1",

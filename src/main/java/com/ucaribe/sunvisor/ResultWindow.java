@@ -13,9 +13,7 @@ import javafx.geometry.Pos;
 import javafx.scene.input.Clipboard;
 import javafx.scene.input.ClipboardContent;
 
-/**
- * Ventana para mostrar los resultados del OCR
- */
+// Ventana para mostrar los resultados del OCR
 public class ResultWindow {
     
     private Stage stage;
@@ -37,12 +35,12 @@ public class ResultWindow {
         
         BorderPane root = new BorderPane();
         
-        // Header con información
+        // Header con informacion
         Label infoLabel = new Label("Motor: " + motorOCR + " | Caracteres: " + texto.length());
         infoLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: #666;");
         infoLabel.setPadding(new Insets(5, 10, 5, 10));
         
-        // Área de texto
+        // Area de texto
         TextArea textArea = new TextArea(texto);
         textArea.setEditable(true);
         textArea.setWrapText(true);
@@ -50,14 +48,14 @@ public class ResultWindow {
         textArea.setStyle("-fx-font-size: 14px;");
         
         // Botones
-        Button copiarBtn = new Button("📋 Copiar");
+        Button copiarBtn = new Button("Copiar");
         copiarBtn.setOnAction(e -> {
             copiarAlPortapapeles();
-            copiarBtn.setText("✅ Copiado");
+            copiarBtn.setText("Copiado");
             new Thread(() -> {
                 try {
                     Thread.sleep(2000);
-                    javafx.application.Platform.runLater(() -> copiarBtn.setText("📋 Copiar"));
+                    javafx.application.Platform.runLater(() -> copiarBtn.setText("Copiar"));
                 } catch (InterruptedException ex) {}
             }).start();
         });

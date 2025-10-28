@@ -1,6 +1,6 @@
 module com.ucaribe.sunvisor {
     
-    // --- Módulos que REQUERIMOS ---
+    // --- Modulos que REQUERIMOS ---
     requires transitive javafx.graphics;
     requires javafx.controls;
     requires javafx.fxml;
@@ -14,7 +14,7 @@ module com.ucaribe.sunvisor {
     requires transitive com.github.kwhat.jnativehook;
 
     
-    // --- Módulos que ABRIMOS  ---
+    // --- Modulos que ABRIMOS  ---
     opens com.ucaribe.sunvisor to javafx.fxml,  javafx.graphics;
 
     exports com.ucaribe.sunvisor;

@@ -20,21 +20,15 @@ public class GlobalKeyboardListener implements NativeKeyListener {
     private boolean altPressed = false;
     private boolean tPressed = false;
 
-    /**
-     * Constructor
-     * 
-     * @param onHotkeyPressed acción a ejecutar cuando se presione el atajo
-     */
+    // Constructor
     public GlobalKeyboardListener(Runnable onHotkeyPressed) {
         this.onHotkeyPressed = onHotkeyPressed;
     }
 
-    /**
-     * Registra el listener global de teclado
-     */
+    // Registra el listener global de teclado
     public void register() {
         try {
-            // Deshabilitar logs de JNativeHook (son muy verbosos)
+            // Deshabilitar logs de JNativeHook (muchotexto)
             Logger jnativeLogger = Logger.getLogger(GlobalScreen.class.getPackage().getName());
             jnativeLogger.setLevel(Level.OFF);
             jnativeLogger.setUseParentHandlers(false);
@@ -54,9 +48,7 @@ public class GlobalKeyboardListener implements NativeKeyListener {
         }
     }
 
-    /**
-     * Desregistra el listener
-     */
+    // Desregistra el listener
     public void unregister() {
         try {
             GlobalScreen.removeNativeKeyListener(this);
@@ -82,15 +74,13 @@ public class GlobalKeyboardListener implements NativeKeyListener {
         if (e.getKeyCode() == NativeKeyEvent.VC_ALT) {
             altPressed = true;
         }
-        
+
         if (e.getKeyCode() == NativeKeyEvent.VC_T) {
             tPressed = true;
         }
-        
-        // System.out.println("hola" + ctrlPressed + altPressed + tPressed);
 
         // Detectar Ctrl+VC_ALT+T
-        if (ctrlPressed && altPressed && e.getKeyCode() == NativeKeyEvent.VC_T) {
+        if (ctrlPressed && altPressed && tPressed) {
             LOGGER.info("Atajo detectado: Ctrl+ALT+T");
 
             if (onHotkeyPressed != null) {

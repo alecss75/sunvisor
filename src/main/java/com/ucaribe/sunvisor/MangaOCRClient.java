@@ -14,9 +14,7 @@ import javax.imageio.ImageIO;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
-/**
- * Cliente para Manga OCR FastAPI Server
- */
+// Cliente para Manga OCR FastAPI Server
 public class MangaOCRClient {
     
     private static final Logger LOGGER = Logger.getLogger(MangaOCRClient.class.getName());
@@ -32,12 +30,12 @@ public class MangaOCRClient {
             .build();
     }
     
-    /**
-     * Procesa una imagen con Manga OCR
-     * @param image imagen a procesar
-     * @return texto detectado
-     * @throws Exception si hay error
-     */
+    //////////////////////////////////////////////
+    // Procesa una imagen con Manga OCR         //
+    // @param image imagen a procesar           //
+    // @return texto detectado                  //
+    // @throws Exception si hay error           //
+    //////////////////////////////////////////////
     public String processImage(BufferedImage image) throws Exception {
         // Convertir imagen a base64
         String base64Image = imageToBase64(image);
@@ -85,7 +83,7 @@ public class MangaOCRClient {
     }
     
     /**
-     * Verifica si el servidor está disponible y listo
+     * Verifica si el servidor esta disponible y listo
      */
     public boolean isServerAvailable() {
         try {
@@ -113,9 +111,7 @@ public class MangaOCRClient {
         }
     }
     
-    /**
-     * Convierte BufferedImage a Base64
-     */
+    // Convierte BufferedImage a Base64
     private String imageToBase64(BufferedImage image) throws Exception {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         ImageIO.write(image, "PNG", baos);
@@ -123,9 +119,7 @@ public class MangaOCRClient {
         return Base64.getEncoder().encodeToString(imageBytes);
     }
     
-    /**
-     * Obtiene información del servidor
-     */
+    // Obtiene informacion del servidor
     public String getServerInfo() {
         try {
             HttpRequest request = HttpRequest.newBuilder()

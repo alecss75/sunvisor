@@ -23,10 +23,6 @@ import java.util.logging.Level;
 import net.sourceforge.tess4j.ITesseract;
 import net.sourceforge.tess4j.Tesseract;
 
-/**
- * SunVisor OCR - Manga Edition
- * Aplicación para OCR de manga japonés con soporte para Manga OCR y Tesseract
- */
 public class App extends Application {
     
     // ==================== CONSTANTES ====================
@@ -54,7 +50,7 @@ public class App extends Application {
     private MangaOCRClient mangaOCR;
     private boolean useMangaOCR = false;
 
-    // ==================== INICIO DE APLICACIÓN ====================
+    // ==================== INICIO DE APLICACIoN ====================
     
     @Override
     public void start(Stage stage) {
@@ -69,10 +65,10 @@ public class App extends Application {
             try {
                 inicializarAplicacion();
             } catch (Exception e) {
-                LOGGER.log(Level.SEVERE, "Error durante inicialización", e);
+                LOGGER.log(Level.SEVERE, "Error durante inicializacion", e);
                 Platform.runLater(() -> {
                     mostrarError("Error Fatal", 
-                        "No se pudo inicializar la aplicación.\n" +
+                        "No se pudo inicializar la aplicacion.\n" +
                         "Error: " + e.getMessage());
                     Platform.exit();
                 });
@@ -80,20 +76,19 @@ public class App extends Application {
         }).start();
     }
 
-    /**
-     * Inicializa todos los componentes de la aplicación
-     */
+    
+    // Inicializa todos los componentes de la aplicacion
     private void inicializarAplicacion() throws Exception {
         LOGGER.info("=".repeat(60));
         LOGGER.info("Iniciando SunVisor OCR - Manga Edition");
         LOGGER.info("=".repeat(60));
         
-        // 1. Inicializar Tesseract (fallback)
+        // Inicializar Tesseract 
         actualizarEstado("Inicializando Tesseract...");
         if (!inicializarTesseract()) {
             throw new Exception("No se pudo inicializar Tesseract OCR");
         }
-        LOGGER.info("✅ Tesseract inicializado");
+        LOGGER.info("Tesseract inicializado");
 
         // 2. Intentar iniciar servidor Manga OCR
         actualizarEstado("Iniciando Manga OCR Server...");
@@ -102,19 +97,19 @@ public class App extends Application {
         // 3. Configurar atajos globales
         actualizarEstado("Configurando atajos de teclado...");
         configurarAtajosGlobales();
-        LOGGER.info("✅ Atajos configurados (Ctrl+Shift+S)");
+        LOGGER.info("Atajos configurados (Ctrl+Alt+T)");
 
         // 4. Mostrar interfaz principal
         Platform.runLater(() -> {
             configurarInterfaz(primaryStage);
-            LOGGER.info("✅ Aplicación lista");
+            LOGGER.info("Aplicacion lista");
             LOGGER.info("=".repeat(60));
         });
     }
 
     /**
      * Intenta iniciar el servidor Manga OCR
-     * @return true si se inició correctamente
+     * @return true si se inicio correctamente
      */
     private boolean iniciarMangaOCRServer() {
         try {
@@ -124,21 +119,21 @@ public class App extends Application {
             boolean servidorIniciado = serverManager.iniciarServidor();
 
             if (!servidorIniciado) {
-                LOGGER.warning("⚠️ No se pudo iniciar servidor Manga OCR");
+                LOGGER.warning("No se pudo iniciar servidor Manga OCR");
                 return false;
             }
 
             // Crear cliente
             mangaOCR = new MangaOCRClient();
             
-            // Esperar a que el servidor esté listo (máximo 30 segundos)
-            LOGGER.info("Esperando a que el servidor esté listo...");
+            // Esperar a que el servidor este listo (maximo 30 segundos)
+            LOGGER.info("Esperando a que el servidor este listo...");
             int intentos = 0;
             int maxIntentos = 30;
             
             while (intentos < maxIntentos) {
                 if (mangaOCR.isServerAvailable()) {
-                    LOGGER.info("✅ Manga OCR Server listo");
+                    LOGGER.info("Manga OCR Server listo");
                     useMangaOCR = true;
                     return true;
                 }
@@ -151,7 +146,7 @@ public class App extends Application {
                 }
             }
             
-            LOGGER.warning("⚠️ Timeout esperando servidor (30s)");
+            LOGGER.warning("Timeout esperando servidor (30s)");
             return false;
             
         } catch (Exception e) {
@@ -177,7 +172,7 @@ public class App extends Application {
      * Muestra pantalla de carga inicial
      */
     private void mostrarSplashScreen() {
-        Label titleLabel = new Label("🎌 SunVisor OCR");
+        Label titleLabel = new Label("SunVisor OCR");
         titleLabel.setStyle("-fx-font-size: 20px; -fx-font-weight: bold;");
         
         statusLabel = new Label("Inicializando...");
@@ -197,20 +192,20 @@ public class App extends Application {
     }
 
     /**
-     * Configura la interfaz principal de la aplicación
+     * Configura la interfaz principal de la aplicacion
      */
     private void configurarInterfaz(Stage stage) {
-        // Título
-        Label titleLabel = new Label("🎌 Manga OCR");
+        // Titulo
+        Label titleLabel = new Label("Manga OCR");
         titleLabel.setStyle("-fx-font-size: 20px; -fx-font-weight: bold;");
 
         // Estado del motor OCR
         Label engineStatusLabel = new Label();
         if (useMangaOCR) {
-            engineStatusLabel.setText("✅ Manga OCR Activo (Alta Precisión)");
+            engineStatusLabel.setText("Manga OCR Activo (Alta Precision)");
             engineStatusLabel.setStyle("-fx-text-fill: #4CAF50; -fx-font-size: 11px; -fx-font-weight: bold;");
         } else {
-            engineStatusLabel.setText("⚠️ Modo Tesseract (Precisión Reducida)");
+            engineStatusLabel.setText("Modo Tesseract (Precision Reducida)");
             engineStatusLabel.setStyle("-fx-text-fill: #FF9800; -fx-font-size: 11px; -fx-font-weight: bold;");
         }
 
@@ -218,25 +213,25 @@ public class App extends Application {
         Tooltip engineTooltip = new Tooltip();
         if (useMangaOCR) {
             engineTooltip.setText(
-                "Manga OCR está activo.\n" +
-                "Optimizado para manga japonés con 90%+ de precisión.\n" +
+                "Manga OCR esta activo.\n" +
+                "Optimizado para manga japones con 90%+ de precision.\n" +
                 "Funciona con hiragana, katakana y kanji."
             );
         } else {
             engineTooltip.setText(
-                "Manga OCR no está disponible.\n" +
+                "Manga OCR no esta disponible.\n" +
                 "Usando Tesseract como alternativa.\n" +
-                "Precisión reducida para manga (60-70%).\n\n" +
+                "Precision reducida para manga (60-70%).\n\n" +
                 "Para activar Manga OCR:\n" +
                 "1. Instala Python\n" +
                 "2. Ejecuta: pip install -r requirements.txt\n" +
-                "3. Reinicia la aplicación"
+                "3. Reinicia la aplicacion"
             );
         }
         engineStatusLabel.setTooltip(engineTooltip);
 
-        // Botón principal
-        startButton = new Button("🔍 Capturar Bocadillo");
+        // Boton principal
+        startButton = new Button("Capturar");
         startButton.setOnAction(e -> iniciarSeleccionSecuencial());
         startButton.setPrefWidth(300);
         startButton.setPrefHeight(55);
@@ -271,7 +266,7 @@ public class App extends Application {
             )
         );
 
-        // Información de atajo
+        // Informacion de atajo
         Text shortcutInfo = new Text("⌨️ Atajo de teclado: Ctrl+Shift+S");
         shortcutInfo.setStyle("-fx-font-size: 11px; -fx-fill: #999;");
 
@@ -312,7 +307,7 @@ public class App extends Application {
         globalKeyListener.register();
     }
 
-    // ==================== INICIALIZACIÓN DE TESSERACT ====================
+    // ==================== INICIALIZACIoN DE TESSERACT ====================
     
     private boolean inicializarTesseract() {
         try {
@@ -369,7 +364,7 @@ public class App extends Application {
             String resourcePath = "/tessdata/" + fileName;
             try (InputStream in = getClass().getResourceAsStream(resourcePath)) {
                 if (in == null) {
-                    LOGGER.warning("No se encontró: " + resourcePath);
+                    LOGGER.warning("No se encontro: " + resourcePath);
                     return false;
                 }
                 
@@ -383,7 +378,7 @@ public class App extends Application {
         }
     }
 
-    // ==================== LÓGICA DE SELECCIÓN ====================
+    // ==================== LoGICA DE SELECCIoN ====================
     
     private void iniciarSeleccionSecuencial() {
         if (isProcessing) {
@@ -402,7 +397,7 @@ public class App extends Application {
 
         primaryStage.hide();
 
-        LOGGER.info("Iniciando captura de bocadillo...");
+        LOGGER.info("Iniciando captura...");
 
         currentScreen = new SelectionScreen(area -> {
             Platform.runLater(() -> {
@@ -417,11 +412,11 @@ public class App extends Application {
         currentScreen = null;
 
         if (area != null && area.width > 0 && area.height > 0) {
-            LOGGER.info(String.format("Área seleccionada: x=%d, y=%d, w=%d, h=%d", 
+            LOGGER.info(String.format("area seleccionada: x=%d, y=%d, w=%d, h=%d", 
                 area.x, area.y, area.width, area.height));
             hacerOCR(area);
         } else {
-            LOGGER.info("Selección cancelada");
+            LOGGER.info("Seleccion cancelada");
         }
 
         primaryStage.show();
@@ -434,13 +429,13 @@ public class App extends Application {
     private void hacerOCR(Rectangle area) {
         // Mostrar indicador de progreso
         Platform.runLater(() -> {
-            startButton.setText("⏳ Procesando...");
+            startButton.setText("Procesando...");
         });
 
         // Ejecutar OCR en thread separado
         new Thread(() -> {
             try {
-                LOGGER.info("Capturando imagen del bocadillo...");
+                LOGGER.info("Capturando imagen del...");
                 
                 Robot robot = new Robot();
                 BufferedImage img = robot.createScreenCapture(area);
@@ -454,41 +449,41 @@ public class App extends Application {
                         LOGGER.info("Procesando con Manga OCR...");
                         texto = mangaOCR.processImage(img);
                         motorUsado = "Manga OCR";
-                        LOGGER.info("✅ Manga OCR exitoso");
+                        LOGGER.info("Manga OCR exitoso");
                         
                     } catch (Exception e) {
-                        LOGGER.warning("Manga OCR falló, intentando con Tesseract...");
+                        LOGGER.warning("Manga OCR fallo, intentando con Tesseract...");
                         LOGGER.log(Level.FINE, "Error de Manga OCR", e);
                         texto = null;
                     }
                 }
                 
-                // Fallback a Tesseract si Manga OCR no funcionó
+                // Fallback a Tesseract si Manga OCR no funciono
                 if (texto == null) {
                     LOGGER.info("Procesando con Tesseract...");
                     
-                    // Preprocesar imagen para mejorar precisión
+                    // Preprocesar imagen para mejorar precision
                     img = ImagePreprocessor.preprocess(img, true);
                     
                     texto = tesseract.doOCR(img);
                     motorUsado = "Tesseract";
-                    LOGGER.info("✅ Tesseract completado");
+                    LOGGER.info("Tesseract completado");
                 }
 
                 // Validar resultado
                 if (texto == null || texto.trim().isEmpty()) {
-                    LOGGER.info("No se detectó texto");
+                    LOGGER.info("No se detecto texto");
                     
                     final String motorFinal = motorUsado;
                     Platform.runLater(() -> {
-                        startButton.setText("🔍 Capturar Bocadillo");
+                        startButton.setText("Capturar");
                         mostrarInfo("Sin Resultados", 
-                            "No se detectó texto en el área seleccionada.\n" +
+                            "No se detecto texto en el area seleccionada.\n" +
                             "Motor usado: " + motorFinal + "\n\n" +
                             "Sugerencias:\n" +
-                            "• Selecciona solo el área del bocadillo\n" +
-                            "• Asegúrate de que el texto sea claro\n" +
-                            "• Aumenta el tamaño del área seleccionada");
+                            "• Selecciona solo el area del\n" +
+                            "• Asegurate de que el texto sea claro\n" +
+                            "• Aumenta el tamaño del area seleccionada");
                     });
                     return;
                 }
@@ -498,11 +493,11 @@ public class App extends Application {
                 final String motorFinal = motorUsado;
                 int caracteres = textoFinal.length();
                 
-                LOGGER.info("✅ Texto detectado: " + caracteres + " caracteres");
+                LOGGER.info("Texto detectado: " + caracteres + " caracteres");
                 LOGGER.info("Texto: " + textoFinal.substring(0, Math.min(50, textoFinal.length())) + "...");
                 
                 Platform.runLater(() -> {
-                    startButton.setText("🔍 Capturar Bocadillo");
+                    startButton.setText("Capturar");
                     ResultWindow win = new ResultWindow(textoFinal, motorFinal);
                     win.show();
                 });
@@ -510,7 +505,7 @@ public class App extends Application {
             } catch (java.awt.AWTException e) {
                 LOGGER.log(Level.SEVERE, "Error al capturar pantalla", e);
                 Platform.runLater(() -> {
-                    startButton.setText("🔍 Capturar Bocadillo");
+                    startButton.setText("Capturar");
                     mostrarError("Error de Captura", 
                         "No se pudo capturar la pantalla.\n" +
                         "Error: " + e.getMessage());
@@ -519,7 +514,7 @@ public class App extends Application {
             } catch (Exception e) {
                 LOGGER.log(Level.SEVERE, "Error durante OCR", e);
                 Platform.runLater(() -> {
-                    startButton.setText("🔍 Capturar Bocadillo");
+                    startButton.setText("Capturar");
                     mostrarError("Error OCR", 
                         "Error al procesar el texto.\n" +
                         "Error: " + e.getMessage());
@@ -528,7 +523,7 @@ public class App extends Application {
         }).start();
     }
 
-    // ==================== CIERRE DE APLICACIÓN ====================
+    // ==================== CIERRE DE APLICACIoN ====================
     
     @Override
     public void stop() throws Exception {
@@ -537,14 +532,14 @@ public class App extends Application {
     }
 
     private void cerrarAplicacion() {
-        LOGGER.info("Cerrando aplicación...");
+        LOGGER.info("Cerrando aplicacion...");
         
         // Desregistrar atajos globales
         if (globalKeyListener != null) {
             globalKeyListener.unregister();
         }
         
-        // Cerrar pantalla de selección si está abierta
+        // Cerrar pantalla de seleccion si esta abierta
         if (currentScreen != null) {
             try {
                 currentScreen.forceClose();
@@ -558,11 +553,11 @@ public class App extends Application {
             serverManager.detenerServidor();
         }
         
-        LOGGER.info("✅ Aplicación cerrada correctamente");
+        LOGGER.info("Aplicacion cerrada correctamente");
         Platform.exit();
     }
 
-    // ==================== DIÁLOGOS ====================
+    // ==================== DIaLOGOS ====================
     
     private void mostrarError(String titulo, String mensaje) {
         mostrarAlerta(Alert.AlertType.ERROR, titulo, mensaje);

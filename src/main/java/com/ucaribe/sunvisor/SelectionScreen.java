@@ -30,7 +30,7 @@ public class SelectionScreen {
     private boolean callbackEjecutado = false;
     private boolean ventanaMostrada = false;
 
-    // 4 rectángulos que forman el overlay
+    // 4 rectangulos que forman el overlay
     private Rectangle topRect, bottomRect, leftRect, rightRect;
     private Rectangle selectionBorder;
 
@@ -54,7 +54,7 @@ public class SelectionScreen {
         ImageView screenshotView = capturarPantalla(bounds);
 
         stage = new Stage();
-        stage.initStyle(StageStyle.UNDECORATED); // ✅ UNDECORATED en lugar de TRANSPARENT
+        stage.initStyle(StageStyle.UNDECORATED); 
         stage.setAlwaysOnTop(true);
         stage.setX(bounds.getMinX());
         stage.setY(bounds.getMinY());
@@ -68,7 +68,7 @@ public class SelectionScreen {
         Rectangle fullOverlay = new Rectangle(screenWidth, screenHeight);
         fullOverlay.setFill(overlayColor);
 
-        // Crear 4 rectángulos para el overlay (inicialmente ocultos)
+        // Crear 4 rectangulos para el overlay (inicialmente ocultos)
         topRect = new Rectangle(0, 0, screenWidth, 0);
         topRect.setFill(overlayColor);
 
@@ -81,14 +81,14 @@ public class SelectionScreen {
         rightRect = new Rectangle(0, 0, 0, 0);
         rightRect.setFill(overlayColor);
 
-        // Borde de la selección
+        // Borde de la seleccidon
         selectionBorder = new Rectangle();
         selectionBorder.setFill(Color.TRANSPARENT);
         selectionBorder.setStroke(Color.RED);
         selectionBorder.setStrokeWidth(2);
         selectionBorder.setVisible(false);
 
-        // Pane para los overlays y selección
+        // Pane para los overlays y seleccidon
         Pane overlayPane = new Pane();
         overlayPane.getChildren().addAll(fullOverlay, topRect, bottomRect, leftRect, rightRect, selectionBorder);
 
@@ -117,9 +117,7 @@ public class SelectionScreen {
         });
     }
 
-    /**
-     * Captura la pantalla y retorna un ImageView
-     */
+    // Captura la pantalla y retorna un ImageView
     private ImageView capturarPantalla(Rectangle2D bounds) {
         try {
             Robot robot = new Robot();
@@ -139,7 +137,7 @@ public class SelectionScreen {
 
         } catch (Exception e) {
             e.printStackTrace();
-            return new ImageView(); // Retornar vacío si falla
+            return new ImageView(); // Retornar vacio si falla
         }
     }
 
@@ -228,7 +226,7 @@ public class SelectionScreen {
             y = Math.max(0, y);
             cerrarVentana(new java.awt.Rectangle(x, y, w, h));
         } else {
-            System.out.println("Selección inválida: w=" + w + ", h=" + h);
+            System.out.println("Seleccidon invalida: w=" + w + ", h=" + h);
             cerrarVentana(null);
         }
     }

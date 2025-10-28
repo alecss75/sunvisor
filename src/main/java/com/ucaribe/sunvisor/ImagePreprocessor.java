@@ -6,26 +6,21 @@ import java.awt.image.BufferedImage;
 import java.awt.Color;
 import java.util.logging.Logger;
 
-/**
- * Preprocesamiento de imágenes para mejorar OCR
- * Especialmente útil para caracteres japoneses
- */
 public class ImagePreprocessor {
 
     private static final Logger LOGGER = Logger.getLogger(ImagePreprocessor.class.getName());
 
-    /**
-     * Preprocesa la imagen para mejorar el OCR de japonés
-     * 
-     * @param original    imagen original
-     * @param forJapanese true si es para japonés
-     * @return imagen procesada
-     */
+    //////////////////////////////////////////////////////////
+    // Preprocesa la imagen para mejorar el OCR de japones  //
+    // @param original imagen original                      //
+    // @param forJapanese true si es para japones           //
+    // @return imagen procesada                             //
+    //////////////////////////////////////////////////////////
     public static BufferedImage preprocess(BufferedImage original, boolean forJapanese) {
         BufferedImage processed = original;
 
         if (forJapanese) {
-            // Escalar imagen (japonés necesita más resolución)
+            // Escalar imagen (japones necesita mas resolucion)
             processed = scaleImage(processed, 2.0);
 
             // Convertir a escala de grises
@@ -34,12 +29,12 @@ public class ImagePreprocessor {
             // Aumentar contraste
             processed = increaseContrast(processed);
 
-            // Binarización (blanco y negro puro)
+            // Binarizacion (blanco y negro puro)
             processed = binarize(processed);
 
-            LOGGER.fine("Imagen preprocesada para japonés");
+            LOGGER.fine("Imagen preprocesada para japones");
         } else {
-            // Para otros idiomas, procesamiento más ligero
+            // Para otros idiomas, procesamiento mas ligero
             processed = toGrayscale(processed);
             processed = increaseContrast(processed);
         }
@@ -57,7 +52,7 @@ public class ImagePreprocessor {
         BufferedImage scaled = new BufferedImage(newWidth, newHeight, BufferedImage.TYPE_INT_RGB);
         Graphics2D g2d = scaled.createGraphics();
 
-        // Usar interpolación de alta calidad
+        // Usar interpolacion de alta calidad
         g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
         g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
         g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
@@ -68,9 +63,7 @@ public class ImagePreprocessor {
         return scaled;
     }
 
-    /**
-     * Convierte a escala de grises
-     */
+    // Convierte a escala de grises
     private static BufferedImage toGrayscale(BufferedImage original) {
         BufferedImage grayscale = new BufferedImage(
                 original.getWidth(),
@@ -84,9 +77,7 @@ public class ImagePreprocessor {
         return grayscale;
     }
 
-    /**
-     * Aumenta el contraste de la imagen
-     */
+    // Aumenta el contraste de la imagen
     private static BufferedImage increaseContrast(BufferedImage original) {
         BufferedImage result = new BufferedImage(
                 original.getWidth(),
@@ -111,17 +102,13 @@ public class ImagePreprocessor {
         return result;
     }
 
-    /**
-     * Ajusta un canal de color con el factor de contraste
-     */
+    // Ajusta un canal de color con el factor de contraste
     private static int adjustChannel(int channel, float factor) {
         int adjusted = (int) (((channel / 255.0 - 0.5) * factor + 0.5) * 255);
         return Math.max(0, Math.min(255, adjusted));
     }
 
-    /**
-     * Binarización (blanco y negro puro) usando Otsu's method simplificado
-     */
+    // Binarizacion (blanco y negro puro) usando Otsu's method simplificado
     private static BufferedImage binarize(BufferedImage original) {
         BufferedImage binarized = new BufferedImage(
                 original.getWidth(),
