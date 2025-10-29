@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Consumer;
 import java.util.logging.Logger;
 import java.util.logging.Level;
 
@@ -19,6 +20,14 @@ public class MangaOCRServerManager {
     
     private Process serverProcess;
     private Thread logReaderThread;
+    private Consumer<String> progressCallback;
+    
+    /**
+     * Establece el callback para actualizar el progreso
+     */
+    public void setProgressCallback(Consumer<String> callback) {
+        this.progressCallback = callback;
+    }
     
     ///////////////////////////////////////////////
     // Inicia el servidor FastAPI               //
@@ -115,8 +124,17 @@ public class MangaOCRServerManager {
      * Busca el script Python en varias ubicaciones
      */
     private File encontrarScript() {
-        // 1. Carpeta resources/backend (desarrollo)
+        // 1. Intentar desde la instalacion (cuando esta empaquetado con jpackage)
+        String appPath = System.getProperty("app.home");
+        if (appPath == null) {
+            appPath = System.getProperty("user.dir");
+        }
+        
         String[] posiblesPaths = {
+            // En instalacion con jpackage
+            appPath + File.separator + "app" + File.separator + "backend" + File.separator + PYTHON_SCRIPT,
+            appPath + File.separator + "backend" + File.separator + PYTHON_SCRIPT,
+            // En desarrollo
             "src/main/resources/backend/" + PYTHON_SCRIPT,
             "resources/backend/" + PYTHON_SCRIPT,
             "backend/" + PYTHON_SCRIPT,
@@ -131,7 +149,7 @@ public class MangaOCRServerManager {
             }
         }
         
-        // 2. Intentar desde classpath (cuando esta empaquetado)
+        // 2. Intentar desde classpath (cuando esta empaquetado en JAR)
         try {
             File tempDir = new File(System.getProperty("java.io.tmpdir"), "manga-ocr-server");
             tempDir.mkdirs();
@@ -186,6 +204,14 @@ public class MangaOCRServerManager {
     
     // Obtiene el comando de Python segun el SO
     private String getPythonCommand() {
+        // 1. Intentar usar Python embebido (si esta empaquetado)
+        String pythonEmbebido = buscarPythonEmbebido();
+        if (pythonEmbebido != null) {
+            LOGGER.info("Usando Python embebido: " + pythonEmbebido);
+            return pythonEmbebido;
+        }
+        
+        // 2. Fallback a Python del sistema
         String os = System.getProperty("os.name").toLowerCase();
         
         // En Windows, intentar "python" primero, luego "py"
@@ -197,6 +223,44 @@ public class MangaOCRServerManager {
         return "python3";
     }
     
+    /**
+     * Busca el Python embebido en la instalacion
+     * @return ruta completa al python.exe embebido, o null si no existe
+     */
+    private String buscarPythonEmbebido() {
+        try {
+            // Obtener la ruta del ejecutable (.exe) actual
+            String appPath = System.getProperty("app.home");
+            
+            // Si no esta definido, intentar con user.dir (directorio actual)
+            if (appPath == null) {
+                appPath = System.getProperty("user.dir");
+            }
+            
+            // Posibles ubicaciones del Python embebido
+            String[] posiblesRutas = {
+                // Cuando esta instalado con jpackage
+                appPath + File.separator + "app" + File.separator + "python" + File.separator + "python.exe",
+                appPath + File.separator + "python" + File.separator + "python.exe",
+                // Cuando esta en desarrollo o portable
+                "python" + File.separator + "python.exe",
+                "app" + File.separator + "python" + File.separator + "python.exe"
+            };
+            
+            for (String ruta : posiblesRutas) {
+                File pythonExe = new File(ruta);
+                if (pythonExe.exists() && pythonExe.canExecute()) {
+                    return pythonExe.getAbsolutePath();
+                }
+            }
+            
+        } catch (Exception e) {
+            LOGGER.log(Level.WARNING, "Error buscando Python embebido", e);
+        }
+        
+        return null;
+    }
+    
     // Inicia thread para leer logs del servidor
     private void iniciarLectorLogs() {
         logReaderThread = new Thread(() -> {
@@ -205,10 +269,25 @@ public class MangaOCRServerManager {
                 
                 String line;
                 while ((line = reader.readLine()) != null && !Thread.interrupted()) {
+                    
+                    // Parsear progreso de instalación (ejemplo: "Downloading packages: 5/30")
+                    if (progressCallback != null && line.contains("/")) {
+                        String trimmed = line.trim();
+                        // Buscar patron "X/Y" en la línea
+                        if (trimmed.matches(".*\\d+/\\d+.*")) {
+                            progressCallback.accept(trimmed);
+                        }
+                    }
+                    
                     // Filtrar solo logs importantes
                     if (line.contains("ERROR") || line.contains("WARNING") || 
                         line.contains("Uvicorn running") || line.contains("Application startup complete")) {
                         LOGGER.info("[FastAPI] " + line);
+                        
+                        // Actualizar título cuando el servidor esté listo
+                        if (progressCallback != null && line.contains("Application startup complete")) {
+                            progressCallback.accept("Servidor listo");
+                        }
                     }
                 }
                 

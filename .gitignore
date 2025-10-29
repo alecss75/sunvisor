@@ -48,6 +48,18 @@ release.properties
 dependency-reduced-pom.xml
 buildNumber.properties
 .mvn/timing.properties
+
+# ===========================
+# Empaquetado / Distribución
+# ===========================
+dist/
+package-resources/
+*.exe
+*.msi
+*.dmg
+*.pkg
+*.deb
+*.rpm
 .mvn/wrapper/maven-wrapper.jar
 
 # ===========================

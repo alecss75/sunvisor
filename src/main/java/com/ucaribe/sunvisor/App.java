@@ -136,8 +136,13 @@ public class App extends Application {
 
         // 3. Configurar atajos globales
         actualizarEstado("Configurando atajos de teclado...");
-        configurarAtajosGlobales();
-        LOGGER.info("Atajos configurados (Ctrl+Alt+T)");
+        try {
+            configurarAtajosGlobales();
+            LOGGER.info("Atajos configurados (Ctrl+Alt+T)");
+        } catch (Exception e) {
+            LOGGER.warning("No se pudieron configurar atajos globales (se requieren permisos de administrador)");
+            LOGGER.warning("La aplicacion funcionara normalmente sin atajos globales");
+        }
 
         // 4. Mostrar interfaz principal
         Platform.runLater(() -> {
@@ -154,6 +159,15 @@ public class App extends Application {
     private boolean iniciarMangaOCRServer() {
         try {
             serverManager = new MangaOCRServerManager();
+            
+            // Establecer callback para actualizar título con el progreso
+            serverManager.setProgressCallback(mensaje -> {
+                javafx.application.Platform.runLater(() -> {
+                    if (primaryStage != null) {
+                        primaryStage.setTitle(APP_TITLE + " - " + mensaje);
+                    }
+                });
+            });
             
             LOGGER.info("Intentando iniciar servidor FastAPI...");
             boolean servidorIniciado = serverManager.iniciarServidor();
@@ -175,6 +189,14 @@ public class App extends Application {
                 if (mangaOCR.isServerAvailable()) {
                     LOGGER.info("Manga OCR Server listo");
                     useMangaOCR = true;
+                    
+                    // Restaurar título original
+                    Platform.runLater(() -> {
+                        if (primaryStage != null) {
+                            primaryStage.setTitle(APP_TITLE);
+                        }
+                    });
+                    
                     return true;
                 }
                 
@@ -187,6 +209,14 @@ public class App extends Application {
             }
             
             LOGGER.warning("Timeout esperando servidor (30s)");
+            
+            // Restaurar título en caso de timeout
+            Platform.runLater(() -> {
+                if (primaryStage != null) {
+                    primaryStage.setTitle(APP_TITLE);
+                }
+            });
+            
             return false;
             
         } catch (Exception e) {
@@ -364,7 +394,7 @@ public class App extends Application {
 
     // ==================== ATAJOS GLOBALES ====================
     
-    private void configurarAtajosGlobales() {
+    private void configurarAtajosGlobales() throws Exception {
         globalKeyListener = new GlobalKeyboardListener(() -> {
             Platform.runLater(() -> {
                 iniciarSeleccionSecuencial();
@@ -410,8 +440,22 @@ public class App extends Application {
 
     private String prepararTessdata() {
         try {
-            File tessDir = new File(TESSDATA_DIR);
+            // Usar directorio de datos de usuario (AppData\Local\SunVisor-OCR\tessdata)
+            String appDataPath = System.getenv("LOCALAPPDATA");
+            File appDataDir;
+            
+            if (appDataPath != null && !appDataPath.isEmpty()) {
+                // Windows: usar %LOCALAPPDATA%\SunVisor-OCR\tessdata
+                appDataDir = new File(appDataPath, "SunVisor-OCR");
+            } else {
+                // Fallback: usar directorio home del usuario
+                String userHome = System.getProperty("user.home");
+                appDataDir = new File(userHome, ".sunvisor-ocr");
+            }
+            
+            File tessDir = new File(appDataDir, TESSDATA_DIR);
             if (!tessDir.exists() && !tessDir.mkdirs()) {
+                LOGGER.severe("No se pudo crear directorio tessdata: " + tessDir.getAbsolutePath());
                 return null;
             }
 
@@ -419,6 +463,7 @@ public class App extends Application {
                 copiarArchivoIdioma(tessDir, lang);
             }
 
+            LOGGER.info("Tessdata preparado en: " + tessDir.getAbsolutePath());
             return tessDir.getAbsolutePath();
             
         } catch (Exception e) {

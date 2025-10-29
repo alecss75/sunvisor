@@ -26,10 +26,14 @@ public class GlobalKeyboardListener implements NativeKeyListener {
     }
 
     // Registra el listener global de teclado
-    public void register() {
+    public void register() throws Exception {
         try {
+            // Intentar cargar la clase GlobalScreen usando reflection
+            // Esto captura el UnsatisfiedLinkError del inicializador estático
+            Class<?> globalScreenClass = Class.forName("com.github.kwhat.jnativehook.GlobalScreen");
+            
             // Deshabilitar logs de JNativeHook (muchotexto)
-            Logger jnativeLogger = Logger.getLogger(GlobalScreen.class.getPackage().getName());
+            Logger jnativeLogger = Logger.getLogger(globalScreenClass.getPackage().getName());
             jnativeLogger.setLevel(Level.OFF);
             jnativeLogger.setUseParentHandlers(false);
 
@@ -43,8 +47,12 @@ public class GlobalKeyboardListener implements NativeKeyListener {
 
             LOGGER.info("Atajos de teclado globales activados: Ctrl+ALT+T");
 
-        } catch (NativeHookException e) {
+        } catch (UnsatisfiedLinkError e) {
+            LOGGER.log(Level.WARNING, "No se pudo cargar la librería nativa de JNativeHook (se requieren permisos de administrador)");
+            throw new Exception("JNativeHook requiere permisos de administrador", e);
+        } catch (Exception e) {
             LOGGER.log(Level.SEVERE, "Error al registrar atajos globales", e);
+            throw e; // Re-lanzar para que App.java lo capture
         }
     }
 
