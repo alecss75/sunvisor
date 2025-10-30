@@ -16,7 +16,7 @@ public class MangaOCRServerManager {
     
     private static final Logger LOGGER = Logger.getLogger(MangaOCRServerManager.class.getName());
     private static final String PYTHON_SCRIPT = "servicio_ocr.py";
-    private static final int SERVER_PORT = 8080;
+    private static final int SERVER_PORT = 10000;  // Puerto alto para evitar conflictos
     
     private Process serverProcess;
     private Thread logReaderThread;
@@ -88,29 +88,46 @@ public class MangaOCRServerManager {
      * Detiene el servidor
      */
     public void detenerServidor() {
+        LOGGER.info("Iniciando detención del servidor...");
+        
+        // Detener thread de logs PRIMERO para evitar errores al leer el stream cerrado
+        if (logReaderThread != null && logReaderThread.isAlive()) {
+            LOGGER.info("Interrumpiendo thread de logs...");
+            logReaderThread.interrupt();
+            try {
+                logReaderThread.join(1000); // Esperar máximo 1 segundo
+            } catch (InterruptedException e) {
+                LOGGER.warning("Timeout esperando thread de logs");
+            }
+        }
+        
         if (serverProcess != null && serverProcess.isAlive()) {
-            LOGGER.info("Deteniendo servidor FastAPI...");
+            LOGGER.info("Deteniendo servidor FastAPI (PID: " + serverProcess.pid() + ")...");
             
             // Intentar cerrar gracefully
             serverProcess.destroy();
             
             try {
-                boolean terminated = serverProcess.waitFor(5, java.util.concurrent.TimeUnit.SECONDS);
+                boolean terminated = serverProcess.waitFor(3, java.util.concurrent.TimeUnit.SECONDS);
                 if (!terminated) {
-                    LOGGER.warning("Servidor no respondio, forzando cierre...");
+                    LOGGER.warning("Servidor no respondió en 3s, forzando cierre...");
                     serverProcess.destroyForcibly();
+                    
+                    // Esperar confirmación del force kill
+                    terminated = serverProcess.waitFor(2, java.util.concurrent.TimeUnit.SECONDS);
+                    if (!terminated) {
+                        LOGGER.severe("Servidor no respondió ni al destroyForcibly");
+                    }
                 }
+                LOGGER.info("Servidor detenido exitosamente");
             } catch (InterruptedException e) {
+                LOGGER.warning("Interrupción durante detención del servidor, forzando cierre...");
                 serverProcess.destroyForcibly();
+                Thread.currentThread().interrupt();
             }
-            
-            // Detener thread de logs
-            if (logReaderThread != null && logReaderThread.isAlive()) {
-                logReaderThread.interrupt();
-            }
-            
-            LOGGER.info("✅ Servidor detenido");
         }
+        
+        LOGGER.info("Detención del servidor completada");
     }
     
     /**
@@ -270,24 +287,35 @@ public class MangaOCRServerManager {
                 String line;
                 while ((line = reader.readLine()) != null && !Thread.interrupted()) {
                     
-                    // Parsear progreso de instalación (ejemplo: "Downloading packages: 5/30")
-                    if (progressCallback != null && line.contains("/")) {
-                        String trimmed = line.trim();
-                        // Buscar patron "X/Y" en la línea
-                        if (trimmed.matches(".*\\d+/\\d+.*")) {
+                    // Actualizar título con el progreso del servidor
+                    if (progressCallback != null) {
+                        // Detectar inicio de servidor
+                        if (line.contains("Started server process")) {
+                            progressCallback.accept("Iniciando servidor...");
+                        }
+                        // Detectar espera de aplicación
+                        else if (line.contains("Waiting for application startup")) {
+                            progressCallback.accept("Cargando Manga OCR...");
+                        }
+                        // Detectar servidor listo
+                        else if (line.contains("Application startup complete")) {
+                            progressCallback.accept("Servidor listo ✓");
+                        }
+                        // Detectar dirección del servidor
+                        else if (line.contains("Uvicorn running on")) {
+                            progressCallback.accept("Servidor activo");
+                        }
+                        // Parsear progreso de instalación de pip (si ocurre)
+                        else if (line.contains("/") && line.matches(".*\\d+/\\d+.*")) {
+                            String trimmed = line.trim();
                             progressCallback.accept(trimmed);
                         }
                     }
                     
-                    // Filtrar solo logs importantes
+                    // Filtrar solo logs importantes para el logger
                     if (line.contains("ERROR") || line.contains("WARNING") || 
                         line.contains("Uvicorn running") || line.contains("Application startup complete")) {
                         LOGGER.info("[FastAPI] " + line);
-                        
-                        // Actualizar título cuando el servidor esté listo
-                        if (progressCallback != null && line.contains("Application startup complete")) {
-                            progressCallback.accept("Servidor listo");
-                        }
                     }
                 }
                 

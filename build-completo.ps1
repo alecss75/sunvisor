@@ -552,6 +552,7 @@ if ($os -eq "Win32NT") {
         }
         
         if ($Type -ne "app-image") {
+            $jpackageArgs += "--win-console"  # TEMPORAL: Para ver logs de coordenadas
             $jpackageArgs += "--win-shortcut"
             $jpackageArgs += "--win-menu"
             $jpackageArgs += "--win-menu-group"

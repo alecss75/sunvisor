@@ -5,7 +5,7 @@
         processorArchitecture="amd64"
         name="com.ucaribe.sunvisor.SunVisor-OCR"
         type="win32"/>
-    <description>SunVisor OCR - Manga Edition</description>
+    <description>SunVisor OCR</description>
     <trustInfo xmlns="urn:schemas-microsoft-com:asm.v3">
         <security>
             <requestedPrivileges>

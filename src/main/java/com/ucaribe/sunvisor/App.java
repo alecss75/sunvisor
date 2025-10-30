@@ -2,10 +2,12 @@ package com.ucaribe.sunvisor;
 
 import javafx.application.Application;
 import javafx.application.Platform;
+import javafx.geometry.Rectangle2D;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.layout.VBox;
 import javafx.scene.text.Text;
+import javafx.stage.Screen;
 import javafx.stage.Stage;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -34,7 +36,7 @@ public class App extends Application {
     private static final double WINDOW_HEIGHT = 280;
     private static final String TESSDATA_DIR = "tessdata";
     private static final String[] LANGUAGES = {"eng", "spa", "jpn", "jpn_vert"};
-    private static final String APP_TITLE = "SunVisor OCR - Manga Edition";
+    private static final String APP_TITLE = "SunVisor OCR";
     
     // Tipos de alfabeto disponibles
     private enum AlphabetType {
@@ -88,6 +90,10 @@ public class App extends Application {
     public void start(Stage stage) {
         this.primaryStage = stage;
         stage.setTitle(APP_TITLE);
+        
+        // IMPORTANTE: Evitar que JavaFX cierre la aplicación automáticamente
+        // cuando se oculta la ventana principal para mostrar SelectionScreen
+        Platform.setImplicitExit(false);
 
         // Mostrar splash screen mientras carga
         mostrarSplashScreen();
@@ -111,7 +117,7 @@ public class App extends Application {
     // Inicializa todos los componentes de la aplicacion
     private void inicializarAplicacion() throws Exception {
         LOGGER.info("=".repeat(60));
-        LOGGER.info("Iniciando SunVisor OCR - Manga Edition");
+        LOGGER.info("Iniciando SunVisor OCR");
         LOGGER.info("=".repeat(60));
         
         // Inicializar Robot (reutilizar para todas las capturas)
@@ -160,6 +166,13 @@ public class App extends Application {
         try {
             serverManager = new MangaOCRServerManager();
             
+            // Mostrar mensaje inicial
+            Platform.runLater(() -> {
+                if (primaryStage != null) {
+                    primaryStage.setTitle(APP_TITLE + " - Preparando servidor...");
+                }
+            });
+            
             // Establecer callback para actualizar título con el progreso
             serverManager.setProgressCallback(mensaje -> {
                 javafx.application.Platform.runLater(() -> {
@@ -174,6 +187,14 @@ public class App extends Application {
 
             if (!servidorIniciado) {
                 LOGGER.warning("No se pudo iniciar servidor Manga OCR");
+                
+                // Restaurar título en caso de error
+                Platform.runLater(() -> {
+                    if (primaryStage != null) {
+                        primaryStage.setTitle(APP_TITLE);
+                    }
+                });
+                
                 return false;
             }
 
@@ -395,26 +416,68 @@ public class App extends Application {
     // ==================== ATAJOS GLOBALES ====================
     
     private void configurarAtajosGlobales() throws Exception {
-        globalKeyListener = new GlobalKeyboardListener(() -> {
-            Platform.runLater(() -> {
-                iniciarSeleccionSecuencial();
+        // IMPORTANTE: No intentar cargar JNativeHook si no hay permisos
+        // Verificar primero si podemos acceder a la DLL antes de crear el listener
+        try {
+            // Intentar cargar la clase GlobalScreen SIN instanciar nada
+            // Si esto falla con UnsatisfiedLinkError, no tenemos permisos
+            Class.forName("com.github.kwhat.jnativehook.GlobalScreen");
+            
+            // Si llegamos aquí, la DLL se cargó correctamente
+            globalKeyListener = new GlobalKeyboardListener(() -> {
+                Platform.runLater(() -> {
+                    iniciarSeleccionSecuencial();
+                });
             });
-        });
-        
-        globalKeyListener.register();
+            
+            globalKeyListener.register();
+            
+        } catch (UnsatisfiedLinkError e) {
+            // La DLL no se pudo cargar (sin permisos de admin)
+            LOGGER.warning("JNativeHook DLL no disponible (requiere permisos de administrador)");
+            throw new Exception("Atajos globales requieren permisos de administrador", e);
+        } catch (ClassNotFoundException e) {
+            // La clase no existe (problema de dependencias)
+            LOGGER.severe("Clase GlobalScreen no encontrada");
+            throw new Exception("JNativeHook no está disponible", e);
+        }
     }
 
     // ==================== INICIALIZACIoN DE TESSERACT ====================
     
     private boolean inicializarTesseract() {
         try {
+            LOGGER.info("Iniciando configuración de Tesseract...");
+            
             String tessdataPath = prepararTessdata();
             if (tessdataPath == null) {
                 LOGGER.severe("No se pudo preparar tessdata");
                 return false;
             }
             
+            LOGGER.info("Tessdata preparado en: " + tessdataPath);
+            
             configurarTesseract(tessdataPath);
+            
+            // Verificar que Tesseract esté realmente funcional haciendo un test
+            try {
+                LOGGER.info("Verificando que Tesseract funcione correctamente...");
+                BufferedImage testImg = new BufferedImage(100, 30, BufferedImage.TYPE_INT_RGB);
+                java.awt.Graphics2D g = testImg.createGraphics();
+                g.setColor(java.awt.Color.WHITE);
+                g.fillRect(0, 0, 100, 30);
+                g.setColor(java.awt.Color.BLACK);
+                g.drawString("Test", 10, 20);
+                g.dispose();
+                
+                String testResult = tesseract.doOCR(testImg);
+                LOGGER.info("Test de Tesseract exitoso, resultado: '" + testResult + "'");
+                
+            } catch (Exception e) {
+                LOGGER.log(Level.SEVERE, "Test de Tesseract falló", e);
+                throw e;
+            }
+            
             return true;
             
         } catch (Exception e) {
@@ -424,10 +487,37 @@ public class App extends Application {
     }
 
     private void configurarTesseract(String tessdataPath) {
+        // Configurar el directorio de datos
         tesseract.setDatapath(tessdataPath);
+        
+        // Configurar idioma
         actualizarTesseractLanguage();
+        
+        // Configurar modo de segmentación de página
         tesseract.setPageSegMode(3);
+        
+        // CRÍTICO: Configurar modo de motor OCR
+        // OcrEngineMode.OEM_LSTM_ONLY = 1 (usa solo LSTM, requiere librerías nativas)
+        // Esto FUERZA el uso de las librerías nativas en lugar de ejecutar tesseract.exe
         tesseract.setOcrEngineMode(1);
+        
+        // IMPORTANTE: Variables del sistema para JNA (Java Native Access)
+        // Esto asegura que tess4j use las DLLs nativas directamente
+        // sin intentar ejecutar procesos externos (que causaría "Failed to launch JVM")
+        
+        // Ubicación de las DLLs nativas de Tesseract
+        String nativeLibPath = System.getProperty("java.library.path", "");
+        LOGGER.info("java.library.path actual: " + nativeLibPath);
+        
+        // Si estamos empaquetados con jpackage, las DLLs están en app/
+        String appHome = System.getProperty("app.home");
+        if (appHome != null) {
+            String appLibPath = appHome + File.separator + "app";
+            LOGGER.info("Agregando ruta de app empaquetada: " + appLibPath);
+            System.setProperty("jna.library.path", appLibPath);
+        }
+        
+        LOGGER.info("Tesseract configurado en modo nativo (JNA/LSTM)");
     }
     
     /**
@@ -515,17 +605,63 @@ public class App extends Application {
             currentScreen.forceClose();
         }
 
+        // Ocultar ventana principal
         primaryStage.hide();
 
         LOGGER.info("Iniciando captura...");
 
-        currentScreen = new SelectionScreen(area -> {
-            Platform.runLater(() -> {
-                finalizarSeleccion(area);
-            });
-        });
+        // Esperar a que la ventana termine de cerrarse y la pantalla se refresque
+        // antes de capturar el screenshot
+        new Thread(() -> {
+            try {
+                Thread.sleep(300); // 300ms para que desaparezca completamente y se refresque la pantalla
+                
+                Platform.runLater(() -> {
+                    try {
+                        LOGGER.info("Creando SelectionScreen...");
+                        
+                        // Detectar en qué monitor está la ventana principal
+                        Screen currentMonitor = detectarMonitorActual();
+                        LOGGER.info("Monitor actual detectado: " + currentMonitor.getBounds());
+                        
+                        currentScreen = new SelectionScreen(currentMonitor, area -> {
+                            Platform.runLater(() -> {
+                                finalizarSeleccion(area);
+                            });
+                        });
 
-        currentScreen.startSelection();
+                        LOGGER.info("Iniciando selección...");
+                        currentScreen.startSelection();
+                        LOGGER.info("Selección iniciada correctamente");
+                        
+                    } catch (Exception e) {
+                        LOGGER.log(Level.SEVERE, "Error al crear SelectionScreen", e);
+                        mostrarError("Error de Captura", 
+                            "No se pudo iniciar la captura de pantalla.\nError: " + e.getMessage());
+                        primaryStage.show();
+                        isProcessing = false;
+                        startButton.setDisable(false);
+                    }
+                });
+                
+            } catch (InterruptedException e) {
+                LOGGER.log(Level.WARNING, "Delay interrumpido", e);
+                Platform.runLater(() -> {
+                    primaryStage.show();
+                    isProcessing = false;
+                    startButton.setDisable(false);
+                });
+            } catch (Exception e) {
+                LOGGER.log(Level.SEVERE, "Error inesperado en thread de captura", e);
+                Platform.runLater(() -> {
+                    mostrarError("Error Inesperado", 
+                        "Ocurrió un error al preparar la captura.\nError: " + e.getMessage());
+                    primaryStage.show();
+                    isProcessing = false;
+                    startButton.setDisable(false);
+                });
+            }
+        }).start();
     }
 
     private void finalizarSeleccion(Rectangle area) {
@@ -557,8 +693,40 @@ public class App extends Application {
             try {
                 LOGGER.info("Capturando imagen del area...");
                 
-                // Reutilizar instancia de Robot
-                BufferedImage img = robot.createScreenCapture(area);
+                // Verificar que Robot esté inicializado
+                if (robot == null) {
+                    LOGGER.severe("Robot no está inicializado");
+                    Platform.runLater(() -> {
+                        mostrarError("Error de Inicialización", 
+                            "El sistema de captura no está listo.\nIntenta reiniciar la aplicación.");
+                        startButton.setText("Capturar Pantalla");
+                    });
+                    return;
+                }
+                
+                // Capturar pantalla (puede fallar si no hay permisos)
+                BufferedImage img;
+                try {
+                    img = robot.createScreenCapture(area);
+                } catch (SecurityException e) {
+                    LOGGER.log(Level.SEVERE, "Sin permisos para capturar pantalla", e);
+                    Platform.runLater(() -> {
+                        mostrarError("Error de Permisos", 
+                            "No se tienen permisos para capturar la pantalla.\n" +
+                            "Intenta ejecutar como administrador.");
+                        startButton.setText("Capturar Pantalla");
+                    });
+                    return;
+                } catch (Exception e) {
+                    LOGGER.log(Level.SEVERE, "Error capturando pantalla", e);
+                    Platform.runLater(() -> {
+                        mostrarError("Error de Captura", 
+                            "No se pudo capturar la pantalla.\n" +
+                            "Error: " + e.getMessage());
+                        startButton.setText("Capturar Pantalla");
+                    });
+                    return;
+                }
                 
                 String texto = null;
                 String motorUsado = "";
@@ -646,33 +814,77 @@ public class App extends Application {
         super.stop();
     }
 
+    // ==================== DETECCIÓN DE MONITOR ====================
+    
+    /**
+     * Detecta en qué monitor está ubicada la ventana principal
+     */
+    private Screen detectarMonitorActual() {
+        // Obtener la posición de la ventana
+        double windowX = primaryStage.getX();
+        double windowY = primaryStage.getY();
+        double windowCenterX = windowX + primaryStage.getWidth() / 2;
+        double windowCenterY = windowY + primaryStage.getHeight() / 2;
+        
+        LOGGER.info("Ventana en: " + windowX + "," + windowY + " Centro: " + windowCenterX + "," + windowCenterY);
+        
+        // Buscar en qué monitor está el centro de la ventana
+        for (Screen screen : Screen.getScreens()) {
+            Rectangle2D bounds = screen.getVisualBounds();
+            if (windowCenterX >= bounds.getMinX() && windowCenterX < bounds.getMaxX() &&
+                windowCenterY >= bounds.getMinY() && windowCenterY < bounds.getMaxY()) {
+                LOGGER.info("Monitor encontrado: " + bounds + " DPI: " + screen.getDpi());
+                return screen;
+            }
+        }
+        
+        // Si no se encontró, devolver el primario
+        LOGGER.warning("No se encontró monitor específico, usando primario");
+        return Screen.getPrimary();
+    }
+    
+    // ==================== CIERRE DE APLICACION ====================
+    
     private void cerrarAplicacion() {
         LOGGER.info("Cerrando aplicacion...");
         
         // Desregistrar atajos globales
         if (globalKeyListener != null) {
-            globalKeyListener.unregister();
+            try {
+                globalKeyListener.unregister();
+                LOGGER.info("Atajos globales desregistrados");
+            } catch (Exception e) {
+                LOGGER.log(Level.WARNING, "Error al desregistrar atajos globales", e);
+            }
         }
         
         // Cerrar pantalla de seleccion si esta abierta
         if (currentScreen != null) {
             try {
                 currentScreen.forceClose();
+                LOGGER.info("SelectionScreen cerrada");
             } catch (Exception e) {
                 LOGGER.log(Level.WARNING, "Error al cerrar SelectionScreen", e);
             }
         }
         
         // Detener ExecutorService de forma ordenada
-        if (ocrExecutor != null) {
+        if (ocrExecutor != null && !ocrExecutor.isShutdown()) {
+            LOGGER.info("Deteniendo OCR executor...");
             ocrExecutor.shutdown();
             try {
-                if (!ocrExecutor.awaitTermination(3, TimeUnit.SECONDS)) {
+                if (!ocrExecutor.awaitTermination(2, TimeUnit.SECONDS)) {
                     LOGGER.warning("Timeout esperando OCR executor, forzando shutdown...");
                     ocrExecutor.shutdownNow();
+                    
+                    // Dar un segundo más para que se termine
+                    if (!ocrExecutor.awaitTermination(1, TimeUnit.SECONDS)) {
+                        LOGGER.severe("OCR executor no respondió al shutdownNow");
+                    }
                 }
+                LOGGER.info("OCR executor detenido");
             } catch (InterruptedException ex) {
-                LOGGER.warning("Interrupcion durante shutdown del executor");
+                LOGGER.warning("Interrupción durante shutdown del executor");
                 ocrExecutor.shutdownNow();
                 Thread.currentThread().interrupt();
             }
@@ -680,11 +892,27 @@ public class App extends Application {
         
         // Detener servidor Manga OCR
         if (serverManager != null) {
+            LOGGER.info("Deteniendo servidor Manga OCR...");
             serverManager.detenerServidor();
+            LOGGER.info("Servidor Manga OCR detenido");
         }
         
         LOGGER.info("Aplicacion cerrada correctamente");
+        
+        // Salir de JavaFX Platform
         Platform.exit();
+        
+        // FORZAR salida del sistema después de un pequeño delay
+        // Esto asegura que todos los threads daemon se terminen
+        new Thread(() -> {
+            try {
+                Thread.sleep(500);
+                LOGGER.info("Forzando salida del sistema...");
+                System.exit(0);
+            } catch (InterruptedException e) {
+                System.exit(0);
+            }
+        }).start();
     }
 
     // ==================== DIaLOGOS ====================

@@ -18,7 +18,7 @@ import com.google.gson.JsonParser;
 public class MangaOCRClient {
     
     private static final Logger LOGGER = Logger.getLogger(MangaOCRClient.class.getName());
-    private static final String BASE_URL = "http://127.0.0.1:8080";
+    private static final String BASE_URL = "http://127.0.0.1:10000";  // Puerto alto para evitar conflictos
     private static final String OCR_ENDPOINT = BASE_URL + "/ocr/manga";
     private static final String HEALTH_ENDPOINT = BASE_URL + "/health";
     
