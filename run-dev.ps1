@@ -12,7 +12,7 @@ $MAVEN_CMD = "C:\Users\aleja\OneDrive\Desktop\personal\proyectos-personales\java
 
 # Compilar si hay cambios
 Write-Host "[1/2] Compilando proyecto..." -ForegroundColor Yellow
-& $MAVEN_CMD clean package -DskipTests -q
+& $MAVEN_CMD clean compile -DskipTests -q
 
 if ($LASTEXITCODE -ne 0) {
     Write-Host "Error en compilacion" -ForegroundColor Red
@@ -22,10 +22,9 @@ if ($LASTEXITCODE -ne 0) {
 Write-Host "Compilacion exitosa" -ForegroundColor Green
 Write-Host ""
 
-# Ejecutar aplicacion
+# Ejecutar aplicacion con JavaFX
 Write-Host "[2/2] Ejecutando aplicacion..." -ForegroundColor Yellow
 Write-Host "Presiona Ctrl+C para detener" -ForegroundColor Gray
 Write-Host ""
 
-cd target
-java -jar sunvisor-0.1.jar
+& $MAVEN_CMD javafx:run

@@ -41,9 +41,7 @@ public class ImagePreprocessor {
         return processed;
     }
 
-    /**
-     * Escala la imagen por un factor
-     */
+    // Escala la imagen por un factor
     private static BufferedImage scaleImage(BufferedImage original, double scale) {
         int newWidth = (int) (original.getWidth() * scale);
         int newHeight = (int) (original.getHeight() * scale);

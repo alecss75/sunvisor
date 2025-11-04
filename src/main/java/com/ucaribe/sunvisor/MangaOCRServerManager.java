@@ -193,9 +193,7 @@ public class MangaOCRServerManager {
         return null;
     }
     
-    /**
-     * Verifica que Python este instalado
-     */
+    // Verifica que Python este instalado
     private boolean verificarPython() {
         try {
             ProcessBuilder pb = new ProcessBuilder(getPythonCommand(), "--version");
@@ -239,11 +237,9 @@ public class MangaOCRServerManager {
         // En Unix/Mac, usar "python3"
         return "python3";
     }
-    
-    /**
-     * Busca el Python embebido en la instalacion
-     * @return ruta completa al python.exe embebido, o null si no existe
-     */
+
+    // Busca el Python embebido en la instalacion
+    // @return ruta completa al python.exe embebido, o null si no existe
     private String buscarPythonEmbebido() {
         try {
             // Obtener la ruta del ejecutable (.exe) actual

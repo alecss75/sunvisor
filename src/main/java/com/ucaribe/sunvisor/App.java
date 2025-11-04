@@ -67,6 +67,8 @@ public class App extends Application {
     
     // UI Components
     private Button startButton;
+    private CheckBox translationCheckBox;
+    private TranslationClient translationClient;
     private Label statusLabel;
     private ProgressIndicator loadingIndicator;
     private ChoiceBox<AlphabetType> languageSelector;
@@ -136,6 +138,11 @@ public class App extends Application {
         }
         LOGGER.info("Tesseract inicializado");
 
+        // Inicializar cliente de traducción
+        actualizarEstado("Inicializando servicio de traducción...");
+        translationClient = new TranslationClient();
+        LOGGER.info("Cliente de traducción inicializado");
+
         // 2. Intentar iniciar servidor Manga OCR
         actualizarEstado("Iniciando Manga OCR Server...");
         iniciarMangaOCRServer();
@@ -201,10 +208,10 @@ public class App extends Application {
             // Crear cliente
             mangaOCR = new MangaOCRClient();
             
-            // Esperar a que el servidor este listo (maximo 30 segundos)
+            // Esperar a que el servidor este listo (maximo 60 segundos para primera carga del modelo)
             LOGGER.info("Esperando a que el servidor este listo...");
             int intentos = 0;
-            int maxIntentos = 30;
+            int maxIntentos = 60;
             
             while (intentos < maxIntentos) {
                 if (mangaOCR.isServerAvailable()) {
@@ -224,12 +231,12 @@ public class App extends Application {
                 Thread.sleep(1000);
                 intentos++;
                 
-                if (intentos % 5 == 0) {
-                    LOGGER.info("Esperando servidor... " + intentos + "/" + maxIntentos);
+                if (intentos % 10 == 0) {
+                    LOGGER.info("Esperando servidor... " + intentos + "/" + maxIntentos + "s");
                 }
             }
             
-            LOGGER.warning("Timeout esperando servidor (30s)");
+            LOGGER.warning("Timeout esperando servidor (60s) - Continuará con Tesseract");
             
             // Restaurar título en caso de timeout
             Platform.runLater(() -> {
@@ -384,7 +391,30 @@ public class App extends Application {
             selectedAlphabet = languageSelector.getValue();
             LOGGER.info("Alfabeto seleccionado: " + selectedAlphabet.displayName);
             actualizarTesseractLanguage();
+            
+            // Mostrar/ocultar checkbox de traducción según el idioma
+            boolean isJapanese = selectedAlphabet == AlphabetType.JAPANESE;
+            translationCheckBox.setVisible(isJapanese);
+            translationCheckBox.setManaged(isJapanese); // Para que no ocupe espacio cuando está oculto
         });
+
+        // Checkbox de traducción
+        translationCheckBox = new CheckBox("Incluir traducción local (Japonés → Inglés)");
+        translationCheckBox.setSelected(false); // Deshabilitado por defecto
+        translationCheckBox.setStyle("-fx-font-size: 12px;");
+        
+        // Inicialmente visible solo si el alfabeto por defecto es japonés
+        boolean isJapanese = selectedAlphabet == AlphabetType.JAPANESE;
+        translationCheckBox.setVisible(isJapanese);
+        translationCheckBox.setManaged(isJapanese);
+        
+        Tooltip translateTooltip = new Tooltip(
+            "Traduce automáticamente el texto japonés al inglés usando modelo local.\n" +
+            "• Requiere modelo descargado (~300MB primera vez)\n" +
+            "• Agrega 2-5 segundos al procesamiento\n" +
+            "• Funciona completamente offline"
+        );
+        translationCheckBox.setTooltip(translateTooltip);
 
         // Separador
         Separator separator = new Separator();
@@ -399,6 +429,7 @@ public class App extends Application {
             separator,
             languageLabel,
             languageSelector,
+            translationCheckBox,
             startButton,
             shortcutInfo
         );
@@ -416,8 +447,6 @@ public class App extends Application {
     // ==================== ATAJOS GLOBALES ====================
     
     private void configurarAtajosGlobales() throws Exception {
-        // IMPORTANTE: No intentar cargar JNativeHook si no hay permisos
-        // Verificar primero si podemos acceder a la DLL antes de crear el listener
         try {
             // Intentar cargar la clase GlobalScreen SIN instanciar nada
             // Si esto falla con UnsatisfiedLinkError, no tenemos permisos
@@ -496,14 +525,7 @@ public class App extends Application {
         // Configurar modo de segmentación de página
         tesseract.setPageSegMode(3);
         
-        // CRÍTICO: Configurar modo de motor OCR
-        // OcrEngineMode.OEM_LSTM_ONLY = 1 (usa solo LSTM, requiere librerías nativas)
-        // Esto FUERZA el uso de las librerías nativas en lugar de ejecutar tesseract.exe
         tesseract.setOcrEngineMode(1);
-        
-        // IMPORTANTE: Variables del sistema para JNA (Java Native Access)
-        // Esto asegura que tess4j use las DLLs nativas directamente
-        // sin intentar ejecutar procesos externos (que causaría "Failed to launch JVM")
         
         // Ubicación de las DLLs nativas de Tesseract
         String nativeLibPath = System.getProperty("java.library.path", "");
@@ -520,9 +542,7 @@ public class App extends Application {
         LOGGER.info("Tesseract configurado en modo nativo (JNA/LSTM)");
     }
     
-    /**
-     * Actualiza el idioma de Tesseract según la selección del usuario
-     */
+    // Actualiza el idioma de Tesseract según la selección del usuario
     private void actualizarTesseractLanguage() {
         tesseract.setLanguage(selectedAlphabet.tessCode);
         LOGGER.info("Tesseract configurado con alfabeto: " + selectedAlphabet.tessCode);
@@ -610,8 +630,7 @@ public class App extends Application {
 
         LOGGER.info("Iniciando captura...");
 
-        // Esperar a que la ventana termine de cerrarse y la pantalla se refresque
-        // antes de capturar el screenshot
+        // Esperar a que la ventana termine de cerrarse y la pantalla se refresque antes de capturar el screenshot
         new Thread(() -> {
             try {
                 Thread.sleep(300); // 300ms para que desaparezca completamente y se refresque la pantalla
@@ -790,8 +809,23 @@ public class App extends Application {
                 
                 Platform.runLater(() -> {
                     startButton.setText("Capturar");
-                    ResultWindow win = new ResultWindow(textoFinal, motorFinal);
-                    win.show();
+                    
+                    // Verificar si se debe traducir
+                    boolean shouldTranslate = translationCheckBox.isSelected() && 
+                                             selectedAlphabet == AlphabetType.JAPANESE;
+                    
+                    if (shouldTranslate) {
+                        // Mostrar ventana con traducción pendiente
+                        ResultWindow win = new ResultWindow(textoFinal, motorFinal, null, true);
+                        win.show();
+                        
+                        // Iniciar traducción asíncrona
+                        translateTextAsync(textoFinal, win);
+                    } else {
+                        // Mostrar ventana normal sin traducción
+                        ResultWindow win = new ResultWindow(textoFinal, motorFinal);
+                        win.show();
+                    }
                 });
 
             } catch (Exception e) {
@@ -806,6 +840,45 @@ public class App extends Application {
         });
     }
 
+    // ==================== TRADUCCIÓN ====================
+    
+    // Traduce texto de manera asíncrona y actualiza la ventana de resultados
+    private void translateTextAsync(String japaneseText, ResultWindow resultWindow) {
+        new Thread(() -> {
+            try {
+                LOGGER.info("Iniciando traducción...");
+                
+                // Verificar disponibilidad del servicio
+                if (!translationClient.isAvailable()) {
+                    Platform.runLater(() -> {
+                        resultWindow.updateTranslation("Error: Servicio de traducción no disponible.\n" +
+                            "Asegúrate de que el servidor Python esté ejecutándose.");
+                    });
+                    return;
+                }
+                
+                // Realizar traducción
+                String translation = translationClient.translate(japaneseText);
+                
+                // Actualizar UI con la traducción
+                Platform.runLater(() -> {
+                    resultWindow.updateTranslation(translation);
+                    LOGGER.info("Traducción completada y mostrada");
+                });
+                
+            } catch (Exception e) {
+                LOGGER.log(Level.WARNING, "Error durante traducción", e);
+                Platform.runLater(() -> {
+                    resultWindow.updateTranslation("Error al traducir: " + e.getMessage() + "\n\n" +
+                        "Posibles causas:\n" +
+                        "• El servidor Python no está ejecutándose\n" +
+                        "• El modelo de traducción no está instalado\n" +
+                        "• Error de conexión con el servicio");
+                });
+            }
+        }).start();
+    }
+
     // ==================== CIERRE DE APLICACIoN ====================
     
     @Override
@@ -816,9 +889,7 @@ public class App extends Application {
 
     // ==================== DETECCIÓN DE MONITOR ====================
     
-    /**
-     * Detecta en qué monitor está ubicada la ventana principal
-     */
+    // Detecta en qué monitor está ubicada la ventana principal
     private Screen detectarMonitorActual() {
         // Obtener la posición de la ventana
         double windowX = primaryStage.getX();

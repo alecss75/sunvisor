@@ -40,13 +40,13 @@ public class SelectionScreen {
 
     private final double screenWidth;
     private final double screenHeight;
-    
+
     // Factores de escala DPI
     private final double outputScaleX;
     private final double outputScaleY;
     private final double boundsMinX;
     private final double boundsMinY;
-    
+
     // Offset entre coordenadas JavaFX y AWT
     private int awtOffsetX;
     private int awtOffsetY;
@@ -65,11 +65,11 @@ public class SelectionScreen {
         this.screenHeight = bounds.getHeight();
         this.boundsMinX = bounds.getMinX();
         this.boundsMinY = bounds.getMinY();
-        
+
         // Guardar factores de escala DPI de este monitor
         this.outputScaleX = targetScreen.getOutputScaleX();
         this.outputScaleY = targetScreen.getOutputScaleY();
-        
+
         System.out.println("[Monitor] Bounds: " + bounds);
         System.out.println("[DPI] Escala: " + outputScaleX + "x" + outputScaleY);
 
@@ -77,7 +77,7 @@ public class SelectionScreen {
         ImageView screenshotView = capturarPantalla(bounds, targetScreen);
 
         stage = new Stage();
-        stage.initStyle(StageStyle.TRANSPARENT); // Cambio de UNDECORATED a TRANSPARENT para evitar cambios de DPI en Windows
+        stage.initStyle(StageStyle.TRANSPARENT);
         stage.setAlwaysOnTop(true);
         stage.setX(bounds.getMinX());
         stage.setY(bounds.getMinY());
@@ -142,45 +142,43 @@ public class SelectionScreen {
         });
     }
 
-    /**
-     * Calcula el rectángulo que engloba TODAS las pantallas disponibles
-     * Usa las coordenadas VISUALES (no físicas) para JavaFX
-     */
+    // Calcula el rectángulo que engloba TODAS las pantallas disponibles
+    // Usa las coordenadas VISUALES (no físicas) para JavaFX
     // Captura la pantalla de un monitor específico
     private ImageView capturarPantalla(Rectangle2D fxBounds, Screen targetScreen) {
         try {
             System.out.println("[Captura] Creando Robot...");
             Robot robot = new Robot();
             System.out.println("[Captura] Robot creado exitosamente");
-            
+
             // Buscar el GraphicsDevice de AWT que corresponde a este monitor JavaFX
             java.awt.GraphicsEnvironment ge = java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment();
             java.awt.GraphicsDevice[] screens = ge.getScreenDevices();
-            
+
             java.awt.Rectangle awtBounds = null;
-            
+
             // Convertir las coordenadas JavaFX a físicas esperadas
             int expectedX = (int) Math.round(fxBounds.getMinX() * outputScaleX);
             int expectedY = (int) Math.round(fxBounds.getMinY() * outputScaleY);
-            
+
             System.out.println("[Búsqueda] Buscando monitor AWT para JavaFX: " + fxBounds);
             System.out.println("[Búsqueda] Coordenadas físicas esperadas: " + expectedX + "," + expectedY);
-            
+
             // Buscar el monitor que contiene estas coordenadas
             for (java.awt.GraphicsDevice screen : screens) {
                 java.awt.Rectangle bounds = screen.getDefaultConfiguration().getBounds();
                 System.out.println("[AWT Monitor] " + bounds);
-                
+
                 // Verificar si las coordenadas esperadas están dentro de este monitor
                 // Dar un margen de tolerancia de 300 píxeles para diferencias en Y
                 if (Math.abs(expectedX - bounds.x) < 100 &&
-                    Math.abs(expectedY - bounds.y) < 300) {
+                        Math.abs(expectedY - bounds.y) < 300) {
                     awtBounds = bounds;
                     System.out.println("[Monitor Match] ✓ Este es el monitor correcto (por posición)!");
                     break;
                 }
             }
-            
+
             // Si no se encontró por coordenadas, intentar por tamaño
             if (awtBounds == null) {
                 System.out.println("[Búsqueda] No encontrado por coordenadas, buscando por tamaño...");
@@ -188,42 +186,42 @@ public class SelectionScreen {
                     java.awt.Rectangle bounds = screen.getDefaultConfiguration().getBounds();
                     double awtScaledWidth = bounds.width / outputScaleX;
                     double awtScaledHeight = bounds.height / outputScaleY;
-                    
+
                     if (Math.abs(awtScaledWidth - fxBounds.getWidth()) < 10 &&
-                        Math.abs(awtScaledHeight - fxBounds.getHeight()) < 10) {
+                            Math.abs(awtScaledHeight - fxBounds.getHeight()) < 10) {
                         awtBounds = bounds;
                         System.out.println("[Monitor Match] ✓ Encontrado por tamaño");
                         break;
                     }
                 }
             }
-            
+
             // Si aún no se encontró, usar conversión directa
             if (awtBounds == null) {
                 System.out.println("[Fallback] Usando conversión directa");
                 awtBounds = new java.awt.Rectangle(
-                    (int) Math.round(fxBounds.getMinX() * outputScaleX),
-                    (int) Math.round(fxBounds.getMinY() * outputScaleY),
-                    (int) Math.round(fxBounds.getWidth() * outputScaleX),
-                    (int) Math.round(fxBounds.getHeight() * outputScaleY)
-                );
+                        (int) Math.round(fxBounds.getMinX() * outputScaleX),
+                        (int) Math.round(fxBounds.getMinY() * outputScaleY),
+                        (int) Math.round(fxBounds.getWidth() * outputScaleX),
+                        (int) Math.round(fxBounds.getHeight() * outputScaleY));
             }
-            
+
             // Guardar offset y escala para conversión posterior
             this.awtOffsetX = awtBounds.x;
             this.awtOffsetY = awtBounds.y;
             this.fxToAwtScaleX = (double) awtBounds.width / fxBounds.getWidth();
             this.fxToAwtScaleY = (double) awtBounds.height / fxBounds.getHeight();
-            
+
             System.out.println("[AWT] Capturando: " + awtBounds);
-            System.out.println("[FX->AWT] Scale: " + fxToAwtScaleX + "x" + fxToAwtScaleY + ", Offset: " + awtOffsetX + "," + awtOffsetY);
-            
+            System.out.println("[FX->AWT] Scale: " + fxToAwtScaleX + "x" + fxToAwtScaleY + ", Offset: " + awtOffsetX
+                    + "," + awtOffsetY);
+
             BufferedImage screenshot = robot.createScreenCapture(awtBounds);
             System.out.println("[Captura] Pantalla capturada: " + screenshot.getWidth() + "x" + screenshot.getHeight());
 
             WritableImage fxImage = SwingFXUtils.toFXImage(screenshot, null);
             ImageView imageView = new ImageView(fxImage);
-            
+
             // Ajustar al tamaño de la ventana JavaFX
             imageView.setFitWidth(fxBounds.getWidth());
             imageView.setFitHeight(fxBounds.getHeight());
@@ -269,7 +267,8 @@ public class SelectionScreen {
     }
 
     private void onMousePressed(MouseEvent e) {
-        System.out.println("[Debug] Mouse PRESSED - Scene: (" + e.getX() + ", " + e.getY() + ") Screen: (" + e.getScreenX() + ", " + e.getScreenY() + ")");
+        System.out.println("[Debug] Mouse PRESSED - Scene: (" + e.getX() + ", " + e.getY() + ") Screen: ("
+                + e.getScreenX() + ", " + e.getScreenY() + ")");
         // Usar coordenadas relativas a la VENTANA, no a la pantalla
         startX = e.getX();
         startY = e.getY();
@@ -321,7 +320,7 @@ public class SelectionScreen {
 
     private void onMouseReleased(MouseEvent e) {
         System.out.println("[Debug] Mouse RELEASED");
-        double endX = e.getX();  // Coordenadas relativas a la ventana
+        double endX = e.getX(); // Coordenadas relativas a la ventana
         double endY = e.getY();
 
         // Coordenadas relativas a la ventana
@@ -329,21 +328,22 @@ public class SelectionScreen {
         double relY = Math.min(startY, endY);
         double relW = Math.abs(endX - startX);
         double relH = Math.abs(endY - startY);
-        
+
         System.out.println("[Selección] Relativa a ventana: " + relX + "," + relY + " " + relW + "x" + relH);
         System.out.println("[Conversión] AWT offset: " + awtOffsetX + "," + awtOffsetY);
         System.out.println("[Conversión] FX->AWT scale: " + fxToAwtScaleX + "x" + fxToAwtScaleY);
-        
+
         // Convertir directamente a coordenadas AWT usando la escala y offset calculados
         int awtX = awtOffsetX + (int) Math.round(relX * fxToAwtScaleX);
         int awtY = awtOffsetY + (int) Math.round(relY * fxToAwtScaleY);
         int awtW = (int) Math.round(relW * fxToAwtScaleX);
         int awtH = (int) Math.round(relH * fxToAwtScaleY);
-        
+
         System.out.println("[AWT] Coordenadas físicas finales: " + awtX + "," + awtY + " " + awtW + "x" + awtH);
 
         if (awtW > 5 && awtH > 5 && awtW < 10000 && awtH < 10000) {
-            // NO aplicar Math.max(0, ...) porque las coordenadas pueden ser negativas en multi-monitor
+            // NO aplicar absolutos porque las coordenadas pueden ser negativas en
+            // multi-monitor
             System.out.println("[OK] Selección válida");
             cerrarVentana(new java.awt.Rectangle(awtX, awtY, awtW, awtH));
         } else {

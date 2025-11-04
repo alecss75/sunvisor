@@ -4,3 +4,6 @@ pydantic==2.5.3
 pillow==10.2.0
 manga-ocr==0.1.10
 python-multipart==0.0.6
+transformers==4.36.0
+torch==2.1.2
+sentencepiece==0.1.99

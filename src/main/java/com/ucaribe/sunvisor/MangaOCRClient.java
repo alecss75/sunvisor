@@ -77,7 +77,7 @@ public class MangaOCRClient {
         }
         
         String text = jsonResponse.get("text").getAsString();
-        LOGGER.info("✅ OCR completado: " + text.length() + " caracteres");
+        LOGGER.info("OCR completado: " + text.length() + " caracteres");
         
         return text;
     }
